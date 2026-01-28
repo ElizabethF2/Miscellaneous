@@ -1255,6 +1255,12 @@ excluded_paths = ['**.txt', '**.exe', '**.nds', '**.elf', 'nds/build']
 destination = '~/.local/share/git_mirrors/KnickKnack'
 url = 'git@github.com:ElizabethF2/KnickKnack.git'
 
+[repos.MarionetteAPI]
+source = '~/OneDrive/Projects/marionette'
+excluded_paths = ['__pycache__']
+destination = '~/.local/share/git_mirrors/marionette_api'
+url = 'git@github.com:ElizabethF2/marionette_wrapper.git'
+
 [repos.RNG]
 source = '~/GDrive/Projects/rng.py'
 destination = '~/.local/share/git_mirrors/Miscellaneous/rng.py'
