@@ -1293,12 +1293,17 @@ destination = '~/.local/share/git_mirrors/Miscellaneous/TransparentGApps.py'
 source = '~/OneDrive/Projects/Alarm Clock.htm'
 destination = '~/.local/share/git_mirrors/Miscellaneous/Alarm Clock.htm'
 
+[repos.SaveSync]
+source = '~/OneDrive/Projects/SaveSync'
+excluded_paths = ['saves']
+destination = '~/.local/share/git_mirrors/Miscellaneous/SaveSync'
+
 [repos.Miscellaneous]
 source = '~/GDrive/Projects/Linux'
 excluded_paths = ['config', '*.yml', '*.tar.gz', 'mount_encrypted_drives.sh',
                   'prbsync*', 'snapshot_tool.py', ]
 kept_paths = ['rng.py', 'podcast_downloader.py', 'url_bulk_opener.htm',
-              'TransparentGApps.py', 'Alarm Clock.htm', ]
+              'TransparentGApps.py', 'Alarm Clock.htm', 'SaveSync', ]
 destination = '~/.local/share/git_mirrors/Miscellaneous'
 url = 'git@github.com:ElizabethF2/Miscellaneous.git'
 
