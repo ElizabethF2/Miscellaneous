@@ -1261,6 +1261,18 @@ excluded_paths = ['__pycache__']
 destination = '~/.local/share/git_mirrors/marionette_api'
 url = 'git@github.com:ElizabethF2/marionette_wrapper.git'
 
+[repos.ResultsLogger]
+source = '~/OneDrive/Projects/ResultsLogger'
+excluded_paths = ['__pycache__', 'Logs', 'PublicLogs']
+destination = '~/.local/share/git_mirrors/ResultsLogger'
+url = 'git@github.com:ElizabethF2/ResultsLogger.git'
+
+[repos.PowerNotifier]
+source = '~/OneDrive/Projects/PowerNotifier'
+excluded_paths = ['bin']
+destination = '~/.local/share/git_mirrors/PowerNotifier'
+url = 'git@github.com:ElizabethF2/PowerNotifier.git'
+
 [repos.RNG]
 source = '~/GDrive/Projects/rng.py'
 destination = '~/.local/share/git_mirrors/Miscellaneous/rng.py'
@@ -1273,11 +1285,16 @@ destination = '~/.local/share/git_mirrors/Miscellaneous/podcast_downloader.py'
 source = '~/GDrive/Projects/url_bulk_opener.htm'
 destination = '~/.local/share/git_mirrors/Miscellaneous/url_bulk_opener.htm'
 
+[repos.TransparentGApps]
+source = '~/OneDrive/Projects/TransparentGApps.py'
+destination = '~/.local/share/git_mirrors/Miscellaneous/TransparentGApps.py'
+
 [repos.Miscellaneous]
 source = '~/GDrive/Projects/Linux'
 excluded_paths = ['config', '*.yml', '*.tar.gz', 'mount_encrypted_drives.sh',
                   'prbsync*', 'snapshot_tool.py', ]
-kept_paths = ['rng.py', 'podcast_downloader.py', 'url_bulk_opener.htm']
+kept_paths = ['rng.py', 'podcast_downloader.py', 'url_bulk_opener.htm',
+              'TransparentGApps.py', ]
 destination = '~/.local/share/git_mirrors/Miscellaneous'
 url = 'git@github.com:ElizabethF2/Miscellaneous.git'
 
