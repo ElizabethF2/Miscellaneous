@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>URL Bulk Opener</title>
+<script>
+function open_em()
+{
+  var txt = document.querySelector('textarea');
+  var urls = txt.value.split('\n');
+  for (url of urls)
+  {
+    var u = url.trim();
+    if (u)
+    {
+      window.open(u);
+    }
+  }
+}
+</script>
+</head>
+<body>
+<textarea></textarea>
+<br><br>
+<input value="Open 'Em" type='button' onclick='open_em();'>
+</body>
+</html>

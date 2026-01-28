@@ -1,0 +1,10 @@
+[Unit]
+Description=EFI Boot Order Proxy
+
+[Service]
+Type=simple
+Restart=no
+ExecStart=/etc/efi_boot_order_proxy.sh
+
+[Install]
+WantedBy=multi-user.target

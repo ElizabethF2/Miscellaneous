@@ -1,0 +1,97 @@
+#!/bin/env python3
+
+VMDEF_VERSION = 1
+NAME = 'minipc'
+MEMORY = '4G'
+
+_BUILD_SCRIPT = r'''
+echo ===============
+echo Entering chroot
+echo ===============
+echo
+chroot _CHROOT /bin/ash <<CHROOTEOF || exit $?
+  echo ============================
+  echo Installing personal packages
+  echo ============================
+  apk add micro tmux bash htop bubblewrap rclone fuse3 lynx bsd-games \
+          python3 py3-requests py3-cryptography \
+          sudo shadow alpine-conf podman busybox || exit $?
+  echo
+
+  echo ================
+  echo Setting hostname
+  echo ================
+  echo MINIPC > /etc/hostname || exit $?
+  echo 1 > /etc/is_minipc_vm || exit $?
+  echo
+
+  echo ==============
+  echo Make local bin
+  echo ==============
+  mkdir -p /root/.local/bin || exit $?
+  echo
+
+  echo ==========
+  echo User setup
+  echo ==========
+  name=Liz
+  printf "\n\n" | adduser "$name" || exit $?
+  adduser "$name" wheel || exit $?
+  echo
+
+  echo =========
+  echo Set shell
+  echo =========
+  chsh --shell "$(command -v bash)" || exit $?
+  echo
+CHROOTEOF
+'''
+
+_BOOTSTRAP_SCRIPT = r'''
+#!/bin/sh
+[ -z "$TMUX" ] && exec tmux new-session -A "${SHELL:-sh}" "$0"
+if ! grep GDrive ~/.config/rclone/rclone.conf ; then
+  rclone config create --non-interactive GDrive drive \
+  && rclone config reconnect GDrive: \
+  || exit $?
+fi
+rclone cat GDrive:/Projects/Linux/minipc_bootstrap.sh | "${SHELL:-sh}"
+type bash && exec bash -l || exec "${SHELL:-sh}"
+'''.lstrip()
+
+_PROFILE_SCRIPT = r'''
+#!/bin/sh
+export PATH="$PATH:$HOME/.local/bin"
+export LESS=-i
+type bind 2>&1 >/dev/null && \
+  bind -s 'set completion-ignore-case on'
+'''.lstrip()
+
+def get_super():
+  import virtuator
+  return virtuator.vmdef_from('podman')
+
+def BUILD(vm):
+  import shlex
+  get_super().BUILD(vm)
+  script = _BUILD_SCRIPT.replace('_CHROOT', get_chroot())
+  vm.pipe_shell(script, echo_output = True, check = True)
+  bootstrap_script_path = get_chroot() + '/root/.local/bin/c'
+  vm.put_file_data(bootstrap_script_path, _BOOTSTRAP_SCRIPT)
+  profile_path = get_chroot() + '/root/.bash_profile'
+  vm.put_file_data(profile_path, _PROFILE_SCRIPT)
+  for p in (bootstrap_script_path, profile_path):
+    vm.run_command('chmod +x {}'.format(shlex.quote(p)),
+                   echo_output = True,
+                   check = True)
+
+def VNC(vm):
+  import virtuator
+  return virtuator.run(('call',
+                        '--port', 'tcp', '5900', '5900',
+                        vm.name,
+                        'ssh'))
+
+locals().update(get_super().__dict__ | locals())
+
+__import__('virtuator').handle()
