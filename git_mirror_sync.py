@@ -8,6 +8,7 @@ Usage:
   --sync REPONAME or -s REPONAME      Sync just REPONAME
   --no-pull-sync REPONAME             Sync just REPONAME without pulling remote
     or -n REPONAME                    changes
+  --push                              Always push
   --procfile or -p                    Run the 'release' process type for a
                                       Procfile called Procfile
   --procfile PATH or -p PATH          Run the 'release' process type for a
@@ -369,40 +370,42 @@ def sync_internal(ctx, repo_name, repo_cfg):
         git(ctx, r.destination, 'rm', relpath)
 
   if r.urls:
-    rc = git(ctx, r.destination, 'diff', '--staged', '--quiet', check = False)
-    if rc == 0:
+    diff_rc = git(ctx, r.destination, 'diff', '--staged', '--quiet', check = False)
+    if diff_rc == 0 and not getattr(ctx, 'always_push', False):
       return None
 
     git(ctx, r.destination, 'status')
 
-    while True:
-      print('')
-      print('Mirror:', r.destination)
-      print('Proceed with commit? (Y)es / (N)o / (V)iew diff')
-      inp = input('> ').lower()
-      if (inp == 'v'):
-        git(ctx, r.destination, 'diff', '--cached', capture = False)
-      elif (inp != 'y'):
-        die('Aborted!')
-      else:
-        break
+    if diff_rc != 0:
+      while True:
+        print('')
+        print('Mirror:', r.destination)
+        print('Proceed with commit? (Y)es / (N)o / (V)iew diff')
+        inp = input('> ').lower()
+        if (inp == 'v'):
+          git(ctx, r.destination, 'diff', '--cached', capture = False)
+        elif (inp != 'y'):
+          die('Aborted!')
+        else:
+          break
 
-    log(ctx, f'Committing changes')
-    git(ctx, r.destination, 'commit', capture = False)
+      log(ctx, f'Committing changes')
+      git(ctx, r.destination, 'commit', capture = False)
 
     print('')
     print('Proceed with push? (y/n)')
     if (input('> ').lower() != 'y'):
       die('Aborted!')
-    log(ctx, f'Pushing changes')
     for url in r.urls:
+      log(ctx, f'Pushing changes to ' + repr(url))
       branch = () if r.branch is None else (r.branch,)
       git(ctx, r.destination, 'push', url, *branch)
 
   return timestamp
 
-def sync_one_repo(repo_name, pull_changes = True):
+def sync_one_repo(repo_name, pull_changes = True, always_push = False):
   ctx = Context()
+  ctx.always_push = always_push
   load_config(ctx)
   if not (repo_cfg := ctx.config.get('repos', {}).get(repo_name)):
     die(f'Invalid repo: {repr(repo_name)}')
@@ -412,8 +415,9 @@ def sync_one_repo(repo_name, pull_changes = True):
   if sync_time is not None:
     update_state(ctx, {repo_name: sync_time})
 
-def sync_all_repos():
+def sync_all_repos(always_push = False):
   ctx = Context()
+  ctx.always_push = always_push
   load_config(ctx)
   new_sync_times = {}
   repos = ctx.config.get('repos', {})
@@ -424,39 +428,58 @@ def sync_all_repos():
       new_sync_times[repo_name] = sync_time
   update_state(ctx, new_sync_times)
 
+def show_help():
+  print(HELP_TEXT)
+
+def run_procfile(path, process_type = DEFAULTS['procfile_process_type']):
+  rc = subprocess.run(get_procfile_command(path, process_type)).returncode
+  sys.exit(rc)
+
+CLI_ARG_TO_FUNC = {
+  '-a': sync_all_repos,
+  '--sync-all': sync_all_repos,
+  '-s': sync_one_repo,
+  '--sync': sync_one_repo,
+  '-n': sync_one_repo,
+  '--no-pull-sync': sync_one_repo,
+  '-h': show_help,
+  '--help': show_help,
+}
+
+MIN_MAX_ARGS = {
+  sync_one_repo: (1, 1),
+  run_procfile: (1, 2),
+}
+
 def main():
   try:
     with open('/proc/self/comm', 'r+') as f:
       f.write('git_mirror_sync')
   except (FileNotFoundError, PermissionError):
     pass
-  args = dict(enumerate(sys.argv[1:]))
-  if args.get(0) in ('-a', '--sync-all'):
-    if len(args) > 1:
-      die('Too many arguments')
-    return sync_all_repos()
-  if args.get(0) in ('-s', '--sync'):
-    if (repo_name := args.get(1)) is None:
-      die('No repo name given\n\n' + HELP_TEXT)
-    if len(args) > 2:
-      die('Too many arguments')
-    return sync_one_repo(repo_name)
-  if args.get(0) in ('-n', '--no-pull-sync'):
-    if (repo_name := args.get(1)) is None:
-      die('No repo name given\n\n' + HELP_TEXT)
-    if len(args) > 2:
-      die('Too many arguments')
-    return sync_one_repo(repo_name, pull_changes = False)
-  if args.get(0) in (None, '-h', '--help'):
-    return print(HELP_TEXT)
-  if args.get(0) in ('-p', '--procfile'):
-    if len(ags) > 3:
-      die('Too many arguments')
-    path = args.get(1, 'Procfile')
-    process_type = args.get(2, DEFAULTS['procfile_process_type'])
-    rc = subprocess.run(get_procfile_command(path, process_type)).returncode
-    sys.exit(rc)
-  die('Invalid argument(s)')
+  args = list(reversed(sys.argv[1:]))
+  func = None
+  fargs = []
+  kw = {}
+  while len(args) > 0:
+    arg = args.pop()
+    if f := CLI_ARG_TO_FUNC.get(arg):
+      if func:
+        die('Too many arguments')
+      func = f
+      if arg in ('-n', '--no-pull-sync'):
+        kw['pull_changes'] = False
+      while len(args) > 0 and len(fargs) < MIN_MAX_ARGS.get(f, (0,0))[1]:
+        fargs.append(args.pop())
+      if len(fargs) < MIN_MAX_ARGS.get(f, (0,0))[0]:
+        die('Too few argument(s)')
+    elif arg == '--push':
+      kw['always_push'] = True
+    else:
+      die('Invalid argument(s)')
+  if not func:
+    return show_help()
+  return func(*fargs, **kw)
 
 if __name__ == '__main__':
   main()
