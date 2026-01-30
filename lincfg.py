@@ -1101,8 +1101,6 @@ cmd = 'python healthcheck.py'
 '''.lstrip()
 
 user_files_with_exact_contents[f'~{desired_username}/.config/git_mirror_sync.toml'] = r'''
-
-
 # state_path = ''
 # log_path = ''
 # cache_dir = ''
@@ -4534,8 +4532,8 @@ known_issues = {
 }
 
 known_issues_with_deadlines = {
-  'CVE-2025-46394': '2026-01-29',
-  'CVE-2025-5278': '2026-01-29',
+  'CVE-2025-46394': '2026-03-29',
+  'CVE-2025-5278': '2026-03-29',
 }
 
 @tasks.append
