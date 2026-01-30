@@ -159,7 +159,7 @@ def sync_changes_from_source(ctx, r):
   if not hasattr(r, 'source'):
     return False, destination_snapshot
   source_snapshot = take_snapshot(r.source, r.excluded_paths, r.renames)
-  if '' not in source_snapshot and not hasattr(r, 'url'):
+  if '' not in source_snapshot and not r.urls:
     os.makedirs(r.destination, exist_ok = True)
   repo_modified = False
   for relpath in sorted(source_snapshot.keys(), key = len):
@@ -244,15 +244,18 @@ def sync_internal(ctx, repo_name, repo_cfg):
     setattr(r, i, set(repo_cfg.get(i, []) + ctx.config.get(i, [])))
   for i in ('substitutions', 'renames'):
     setattr(r, i, ctx.config.get(i, {}) | repo_cfg.get(i, {}))
-  for i in ('source', 'url', 'git_dir'):
+  for i in ('source', 'git_dir'):
     if (v := repo_cfg.get(i)) is not None:
-      setattr(r, i, v if i == 'url' else os.path.expanduser(v))
+      setattr(r, i, os.path.expanduser(v))
+  r.urls = repo_cfg.get('urls', [])
+  if (v := repo_cfg.get('url')) is not None:
+    r.urls.insert(0, v)
   for i in ('destination',):
     if (v := repo_cfg.get(i)) is None:
       die('Missing or empty value for {} in {}'.format(i, repo_name))
     setattr(r, i, os.path.expanduser(v))
   r.substitutions = {k.encode(): v.encode() for k,v in r.substitutions.items()}
-  if hasattr(r, 'url'):
+  if r.urls:
     if os.path.exists(r.destination):
       if not r.no_pull:
         log(ctx, 'pulling changes')
@@ -261,9 +264,9 @@ def sync_internal(ctx, repo_name, repo_cfg):
       log(ctx, 'cloning repo')
       dest_parent = os.path.dirname(r.destination)
       os.makedirs(dest_parent, exist_ok = True)
-      git(ctx, dest_parent, 'clone', r.url, r.destination)
+      git(ctx, dest_parent, 'clone', r.urls[0], r.destination)
       log(ctx, 'set origin')
-      git(ctx, r.destination, 'add', 'origin', r.url, check = False)
+      git(ctx, r.destination, 'add', 'origin', r.urls[0], check = False)
   if r.branch is not None:
     log(ctx, f'switching to branch {repr(r.branch)}')
     git(ctx, r.destination, 'checkout', '-b', r.branch)
@@ -365,7 +368,7 @@ def sync_internal(ctx, repo_name, repo_cfg):
       if relpath not in new_snapshot:
         git(ctx, r.destination, 'rm', relpath)
 
-  if hasattr(r, 'url'):
+  if r.urls:
     rc = git(ctx, r.destination, 'diff', '--staged', '--quiet', check = False)
     if rc == 0:
       return None
@@ -392,7 +395,9 @@ def sync_internal(ctx, repo_name, repo_cfg):
     if (input('> ').lower() != 'y'):
       die('Aborted!')
     log(ctx, f'Pushing changes')
-    git(ctx, r.destination, 'push')
+    for url in r.urls:
+      branch = () if r.branch is None else (r.branch,)
+      git(ctx, r.destination, 'push', url, *branch)
 
   return timestamp
 

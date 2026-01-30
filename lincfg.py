@@ -61,7 +61,7 @@ postmarketos_packages = '''
   rclone rclone-doc man-db man-pages networkmanager-doc alpine-doc aspell aspell-en aspell-doc bash-doc
   sudo sudo-doc !doas-sudo-shim curl curl-doc baobab baobab-doc cryptsetup-doc findutils findutils-doc
   flashrom flashrom-doc waydroid iptables-doc iproute2-minimal ufw ufw-doc iproute2-ss sshfs sshfs-doc py3-cryptography
-  bash scrcpy redsocks htop clamav
+  bash scrcpy redsocks htop clamav coreutils bind-tools
 '''.split()
 
 personal_postmarketos_packages = '''
@@ -1118,12 +1118,14 @@ kept_paths = ['LICENSE']
 [substitutions]
 '(?s)#\s*GIT_MIRROR_SYNC_EXCLUDE_BEGIN.+?GIT_MIRROR_SYNC_EXCLUDE_END' = ''
 '(?is)rem\s*GIT_MIRROR_SYNC_EXCLUDE_BEGIN.+?GIT_MIRROR_SYNC_EXCLUDE_END' = ''
+'(?s)//\s*GIT_MIRROR_SYNC_EXCLUDE_BEGIN.+?GIT_MIRROR_SYNC_EXCLUDE_END' = ''
 
 [repos.Gamepadify]
 source = '~/GDrive/Projects/Gamepadify'
 excluded_paths = ['old']
 destination = '~/.local/share/git_mirrors/Gamepadify'
-url = 'git@github.com:ElizabethF2/Gamepadify.git'
+urls = ['git@github.com:ElizabethF2/Gamepadify.git',
+        'git@gitlab.com:ElizabethF2/Gamepadify.git', ]
 
 [repos.Gamepadify.renames]
 mygamepad = 'examples/comprehensive_config.py'
@@ -1132,23 +1134,33 @@ mygamepad = 'examples/comprehensive_config.py'
 source = '~/GDrive/Projects/MissionControlLite'
 excluded_paths = ['MissionControlLite.service']
 destination = '~/.local/share/git_mirrors/MissionControlLite'
-url = 'git@github.com:ElizabethF2/MissionControlLite.git'
+urls = ['git@github.com:ElizabethF2/MissionControlLite.git',
+        'git@gitlab.com:ElizabethF2/MissionControlLite.git', ]
 
 [repos.PRBSync]
 source = '~/GDrive/Projects/PRBSync'
 destination = '~/.local/share/git_mirrors/PRBSync'
-url = 'git@github.com:ElizabethF2/PRBSync.git'
+urls = ['git@github.com:ElizabethF2/PRBSync.git',
+        'git@gitlab.com:ElizabethF2/PRBSync.git', ]
 
 [repos.Virtuator]
 source = '~/GDrive/Projects/Virtuator'
 destination = '~/.local/share/git_mirrors/Virtuator'
-url = 'git@github.com:ElizabethF2/Virtuator.git'
+urls = ['git@github.com:ElizabethF2/Virtuator.git',
+        'git@gitlab.com:ElizabethF2/Virtuator.git', ]
+
+[repos.Queark]
+source = '~/GDrive/Projects/Queark'
+destination = '~/.local/share/git_mirrors/Queark'
+urls = ['git@github.com:ElizabethF2/Queark.git',
+        'git@gitlab.com:ElizabethF2/Queark.git', ]
 
 [repos.Lockdown]
 source = '~/GDrive/Projects/Lockdown'
 excluded_paths = ['**old', '**.txt']
 destination = '~/.local/share/git_mirrors/OS-Lockdown'
-url = 'git@github.com:ElizabethF2/OS-Lockdown.git'
+urls = ['git@github.com:ElizabethF2/OS-Lockdown.git',
+        'git@gitlab.com:ElizabethF2/OS-Lockdown.git', ]
 
 [repos.Sessen]
 source = '~/OneDrive/Projects/Sessen'
@@ -1158,67 +1170,78 @@ excluded_paths = ['**.pem', '**.txt', '**.json', '**.db', '**.log', '**.pyc', '*
                   'Disabled Extensions', 'dev/old/test.py', 'dev/old/winpipe.py',
                   'sandboxpy', '**r1*', '**r2*', '**v1*', '**v2*']
 destination = '~/.local/share/git_mirrors/Sessen'
-url = 'git@github.com:ElizabethF2/Sessen.git'
+urls = ['git@github.com:ElizabethF2/Sessen.git',
+        'git@gitlab.com:ElizabethF2/Sessen.git', ]
 
 [repos.SandboxPy]
 source = '~/OneDrive/Projects/Sessen/sandboxpy'
 excluded_paths = ['**__pycache__']
 destination = '~/.local/share/git_mirrors/SandboxPy'
-url = 'git@github.com:ElizabethF2/SandboxPy.git'
+urls = ['git@github.com:ElizabethF2/SandboxPy.git',
+        'git@gitlab.com:ElizabethF2/SandboxPy.git', ]
 
 [repos.Readyr]
 source = '~/OneDrive/Projects/Sessen/Extensions/Readyr'
 
 destination = '~/.local/share/git_mirrors/Readyr'
-url = 'git@github.com:ElizabethF2/Readyr.git'
+urls = ['git@github.com:ElizabethF2/Readyr.git',
+        'git@gitlab.com:ElizabethF2/Readyr.git', ]
 
 [repos.MissionControl]
 source = '~/OneDrive/Projects/Sessen/Extensions/MissionControl'
 excluded_paths = ['__pycache__', '*.json', 'client_config.js']
 destination = '~/.local/share/git_mirrors/MissionControl'
-url = 'git@github.com:ElizabethF2/MissionControl.git'
+urls = ['git@github.com:ElizabethF2/MissionControl.git',
+        'git@gitlab.com:ElizabethF2/MissionControl.git', ]
 
 [repos.CharonRMM]
 source = '~/GDrive/Projects/CharonRMM'
 excluded_paths = ['**.pem', '**.toml', '**scratch*', 'fix_rustdesk_key.py',
                   'wincfg.py']
 destination = '~/.local/share/git_mirrors/CharonRMM'
-url = 'git@github.com:ElizabethF2/CharonRMM.git'
+urls = ['git@github.com:ElizabethF2/CharonRMM.git',
+        'git@gitlab.com:ElizabethF2/CharonRMM.git', ]
 
 [repos.MinecraftGravity]
 source = '~/OneDrive/Projects/Mods/Minecraft/GravityJS'
 excluded_paths = ['**-r1*', '*.mcpack']
 destination = '~/.local/share/git_mirrors/MinecraftGravity'
-url = 'git@github.com:ElizabethF2/MinecraftGravity.git'
+urls = ['git@github.com:ElizabethF2/MinecraftGravity.git',
+        'git@gitlab.com:ElizabethF2/MinecraftGravity.git', ]
 
 [repos.PettyJSOS]
 source = '~/OneDrive/Projects/PettyJSOS'
 excluded_paths = ['**v1*']
 destination = '~/.local/share/git_mirrors/PettyJSOS'
-url = 'git@github.com:ElizabethF2/PettyJSOS.git'
+urls = ['git@github.com:ElizabethF2/PettyJSOS.git',
+        'git@gitlab.com:ElizabethF2/PettyJSOS.git', ]
 
 [repos.pTaskRunner]
 source = '~/GDrive/Projects/PerfM'
 destination = '~/.local/share/git_mirrors/pTaskRunner'
-url = 'git@github.com:ElizabethF2/pTaskRunner.git'
+urls = ['git@github.com:ElizabethF2/pTaskRunner.git',
+        'git@gitlab.com:ElizabethF2/pTaskRunner.git', ]
 
 [repos.NPP_on_Kate]
 source = '~/OneDrive/Projects/NPP on Kate'
 excluded_paths = ['**r1*', '*.txt']
 destination = '~/.local/share/git_mirrors/NPP_on_Kate'
-url = 'git@github.com:ElizabethF2/NPP-on-Kate.git'
+urls = ['git@github.com:ElizabethF2/NPP-on-Kate.git',
+        'git@gitlab.com:ElizabethF2/NPP-on-Kate.git', ]
 
 [repos.GiantCursor]
 source = '~/OneDrive/Projects/GiantCursor'
 excluded_paths = ['**.txt', '**.exe', '**.cur', 'bin', 'old']
 destination = '~/.local/share/git_mirrors/GiantCursor'
-url = 'git@github.com:ElizabethF2/GiantCursor.git'
+urls = ['git@github.com:ElizabethF2/GiantCursor.git',
+        'git@gitlab.com:ElizabethF2/GiantCursor.git', ]
 
 [repos.ReflectiveNAS]
 source = '~/OneDrive/Projects/ReflectiveNAS'
 
 destination = '~/.local/share/git_mirrors/ReflectiveNAS'
-url = 'git@github.com:ElizabethF2/ReflectiveNAS.git'
+urls = ['git@github.com:ElizabethF2/ReflectiveNAS.git',
+        'git@gitlab.com:ElizabethF2/ReflectiveNAS.git', ]
 
 [repos.EncryptedNasBase]
 source = '~/OneDrive/Projects/ReflectiveNAS/EncryptedNAS'
@@ -1236,42 +1259,103 @@ destination = '~/.local/share/git_mirrors/EncryptedNAS/README.md'
 
 [repos.EncryptedNAS]
 destination = '~/.local/share/git_mirrors/EncryptedNAS'
-url = 'git@github.com:ElizabethF2/EncryptedNAS.git'
+urls = ['git@github.com:ElizabethF2/EncryptedNAS.git',
+        'git@gitlab.com:ElizabethF2/EncryptedNAS.git', ]
 
 [repos.RedundantNAS]
 source = '~/OneDrive/Projects/RedundantNAS'
 
 destination = '~/.local/share/git_mirrors/RedundantNAS'
-url = 'git@github.com:ElizabethF2/RedundantNAS.git'
+urls = ['git@github.com:ElizabethF2/RedundantNAS.git',
+        'git@gitlab.com:ElizabethF2/RedundantNAS.git', ]
 
 [repos.StorageMinder]
 source = '~/OneDrive/Projects/StorageMinder'
 destination = '~/.local/share/git_mirrors/StorageMinder'
-url = 'git@github.com:ElizabethF2/StorageMinder.git'
+urls = ['git@github.com:ElizabethF2/StorageMinder.git',
+        'git@gitlab.com:ElizabethF2/StorageMinder.git', ]
 
 [repos.KnickKnack]
 source = '~/OneDrive/Projects/KnickKnack'
 excluded_paths = ['**.txt', '**.exe', '**.nds', '**.elf', 'nds/build']
 destination = '~/.local/share/git_mirrors/KnickKnack'
-url = 'git@github.com:ElizabethF2/KnickKnack.git'
+urls = ['git@github.com:ElizabethF2/KnickKnack.git',
+        'git@gitlab.com:ElizabethF2/KnickKnack.git', ]
 
 [repos.MarionetteAPI]
 source = '~/OneDrive/Projects/marionette'
 excluded_paths = ['__pycache__']
 destination = '~/.local/share/git_mirrors/marionette_api'
-url = 'git@github.com:ElizabethF2/marionette_wrapper.git'
+urls = ['git@github.com:ElizabethF2/marionette_wrapper.git',
+        'git@gitlab.com:ElizabethF2/marionette_wrapper.git', ]
 
 [repos.ResultsLogger]
 source = '~/OneDrive/Projects/ResultsLogger'
 excluded_paths = ['__pycache__', 'Logs', 'PublicLogs']
 destination = '~/.local/share/git_mirrors/ResultsLogger'
-url = 'git@github.com:ElizabethF2/ResultsLogger.git'
+urls = ['git@github.com:ElizabethF2/ResultsLogger.git',
+        'git@gitlab.com:ElizabethF2/ResultsLogger.git', ]
 
 [repos.PowerNotifier]
 source = '~/OneDrive/Projects/PowerNotifier'
 excluded_paths = ['bin']
 destination = '~/.local/share/git_mirrors/PowerNotifier'
-url = 'git@github.com:ElizabethF2/PowerNotifier.git'
+urls = ['git@github.com:ElizabethF2/PowerNotifier.git',
+        'git@gitlab.com:ElizabethF2/PowerNotifier.git', ]
+
+[repos.MelodAIc]
+source = '~/GDrive/Projects/Legacy/MelodAIc'
+destination = '~/.local/share/git_mirrors/MelodAIc'
+urls = ['git@github.com:ElizabethF2/MelodAIc.git',
+        'git@gitlab.com:ElizabethF2/MelodAIc.git', ]
+
+[repos.BattlefrontShader]
+source = '~/GDrive/Projects/Legacy/BattlefrontShader'
+destination = '~/.local/share/git_mirrors/BattlefrontShader'
+urls = ['git@github.com:ElizabethF2/BattlefrontShader.git',
+        'git@gitlab.com:ElizabethF2/BattlefrontShader.git', ]
+
+[repos.PotatoVideo]
+source = '~/GDrive/Projects/Legacy/PotatoVideo'
+destination = '~/.local/share/git_mirrors/PotatoVideo'
+urls = ['git@github.com:ElizabethF2/PotatoVideo.git',
+        'git@gitlab.com:ElizabethF2/PotatoVideo.git', ]
+
+[repos.Game3DSjs]
+source = '~/GDrive/Projects/Legacy/Game3DSjs'
+destination = '~/.local/share/git_mirrors/Game3DSjs'
+urls = ['git@github.com:ElizabethF2/Game3DSjs.git',
+        'git@gitlab.com:ElizabethF2/Game3DSjs.git', ]
+
+[repos.XboxRemotePlay]
+source = '~/GDrive/Projects/Legacy/XboxRemotePlay'
+destination = '~/.local/share/git_mirrors/XboxRemotePlay'
+urls = ['git@github.com:ElizabethF2/XboxRemotePlay.git',
+        'git@gitlab.com:ElizabethF2/XboxRemotePlay.git', ]
+
+[repos.GTA_V_Mods]
+source = '~/GDrive/Projects/Legacy/GTA_V_Mods'
+destination = '~/.local/share/git_mirrors/GTA_V_Mods'
+urls = ['git@github.com:ElizabethF2/GTA-V-Mods.git',
+        'git@gitlab.com:ElizabethF2/GTA-V-Mods.git', ]
+
+[repos.Lattyce]
+source = '~/GDrive/Projects/Legacy/Lattyce'
+destination = '~/.local/share/git_mirrors/Lattyce'
+urls = ['git@github.com:ElizabethF2/Lattyce.git',
+        'git@gitlab.com:ElizabethF2/Lattyce.git', ]
+
+[repos.LeapMotionScripts]
+source = '~/GDrive/Projects/Legacy/LeapMotionScripts'
+destination = '~/.local/share/git_mirrors/LeapMotionScripts'
+urls = ['git@github.com:ElizabethF2/Leap-Motion-Scripts.git',
+        'git@gitlab.com:ElizabethF2/Leap-Motion-Scripts.git', ]
+
+[repos.MarkovChainScripts]
+source = '~/GDrive/Projects/Legacy/MarkovChainScripts'
+destination = '~/.local/share/git_mirrors/MarkovChainScripts'
+urls = ['git@github.com:ElizabethF2/Markov-Chain-Scripts.git',
+        'git@gitlab.com:ElizabethF2/Markov-Chain-Scripts.git', ]
 
 [repos.RNG]
 source = '~/GDrive/Projects/rng.py'
@@ -1305,7 +1389,8 @@ excluded_paths = ['config', '*.yml', '*.tar.gz', 'mount_encrypted_drives.sh',
 kept_paths = ['rng.py', 'podcast_downloader.py', 'url_bulk_opener.htm',
               'TransparentGApps.py', 'Alarm Clock.htm', 'SaveSync', ]
 destination = '~/.local/share/git_mirrors/Miscellaneous'
-url = 'git@github.com:ElizabethF2/Miscellaneous.git'
+urls = ['git@github.com:ElizabethF2/Miscellaneous.git',
+        'git@gitlab.com:ElizabethF2/Miscellaneous.git', ]
 
 [repos.Miscellaneous.renames]
 'miscellaneous.md' = 'README.md'
@@ -2388,6 +2473,7 @@ LATEST_MALDET_VERSION = '1.6.6'
 
 MALDET_SETUP_SCRIPT = r'''
 # Reference: https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=maldet
+# Alpine Dependencies: coreutils, bind-tools
 
 WS="$(mktemp -d ${TMPDIR:-/tmp}/maldet_setup_XXXXXX)"
 echo "Maldet Setup Workspace: $WS"
@@ -2395,16 +2481,17 @@ chown nobody: "$WS"
 
 (
 cat <<EOF
-
 cd $WS
 wget -O main.tar.gz https://github.com/rfxn/linux-malware-detect/archive/1.6.6.1.tar.gz
-b2sum main* | \\
-  grep 67fb4daeb10e898f67f9dec6d8033c6f9ebabd4041cc55eb0e16cc5d9291a8e3114aff9444df31def6314c5add2dfb6dac7a7f3ed64ec8477ceb8ce6feed8ced || \\
+b2sum main* | \
+  grep 67fb4daeb10e898f67f9dec6d8033c6f9ebabd4041cc55eb0e16cc5d9291a8e3114aff9444df31def6314c5add2dfb6dac7a7f3ed64ec8477ceb8ce6feed8ced || \
   exit 1
-
 tar xzf main*
+EOF
+) | runuser -u nobody sh || exit $?
 
-cd linux-malware-detect-*
+cd $WS/linux-malware-detect-*
+
 sed -i "files/maldet" \
     -e "s|^inspath='/usr/local/maldetect'|inspath='/usr/share/maldet'|" \
     -e 's|^intcnf="\$inspath/internals/internals.conf"|intcnf="/etc/maldet/internals.conf"|'
@@ -2454,20 +2541,16 @@ sed -i "files/internals/scan.etpl" \
 sed -i "files/internals/tlog" \
     -e "s|/usr/local/maldetect/tmp|/var/lib/maldet/tmp|"
 
-EOF
-) | runuser -u nobody sh || exit $?
-
-cd "$WS/linux-malware-detect-*"
 install -m 777 /dev/null /etc/maldet/hookscan.conf
 install -D -m 755 "files/maldet" "/usr/bin/maldet"
 install -D -m 755 "files/hookscan.sh" "/usr/bin/hookscan"
 install -d "/usr/share/maldet"
-cp -ar "files/"{clean,internals,VERSION,VERSION.hash} "/usr/share/maldet"
+cp -ar "files/"{clean,internals,VERSION*} "/usr/share/maldet"
 install -d "/var/lib/maldet/"{internals,quarantine,sess,sigs,clean,tmp,pub}
 install -d "/var/log/maldet"
 install -d "/etc/maldet"
 install -m 644 "files/conf.maldet" "/etc/maldet/maldet.conf"
-install -m 644 "files/conf.maldet.hookscan" "/etc/maldet/hookscan.conf"
+# install -m 644 "files/conf.maldet.hookscan" "/etc/maldet/hookscan.conf"
 install -m 644 "files/internals/internals.conf" "/etc/maldet/internals.conf"
 install -m 644 "files/monitor_paths" "/etc/maldet/monitor_paths"
 cp -ra "files/"ignore_* "/etc/maldet/"
@@ -2485,7 +2568,9 @@ def ensure_maldet_installed_and_up_to_date():
     current_version = re.search('ver=(.+)', maldet_bin).group(1)
     if current_version == LATEST_MALDET_VERSION:
       return
-  subprocess.check_call(get_shell(), stdin = MALDET_SETUP_SCRIPT.encode())
+  subprocess.run(get_shell(),
+                 input = MALDET_SETUP_SCRIPT.encode(),
+                 check = True)
 
 @tasks.append
 def ensure_passwords_are_setup():
