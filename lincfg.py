@@ -1126,7 +1126,8 @@ excluded_paths = ['old']
 destination = '~/.local/share/git_mirrors/Gamepadify'
 urls = ['git@github.com:ElizabethF2/Gamepadify.git',
         'git@gitlab.com:ElizabethF2/Gamepadify.git',
-        'git@codeberg.org:ElizabethF2/Gamepadify.git', ]
+        'git@codeberg.org:ElizabethF2/Gamepadify.git',
+        'git@bitbucket.org:elizabethf2/gamepadify.git', ]
 
 [repos.Gamepadify.renames]
 mygamepad = 'examples/comprehensive_config.py'
@@ -1137,28 +1138,32 @@ excluded_paths = ['MissionControlLite.service']
 destination = '~/.local/share/git_mirrors/MissionControlLite'
 urls = ['git@github.com:ElizabethF2/MissionControlLite.git',
         'git@gitlab.com:ElizabethF2/MissionControlLite.git',
-        'git@codeberg.org:ElizabethF2/MissionControlLite.git', ]
+        'git@codeberg.org:ElizabethF2/MissionControlLite.git',
+        'git@bitbucket.org:ElizabethF2/MissionControlLite.git', ]
 
 [repos.PRBSync]
 source = '~/GDrive/Projects/PRBSync'
 destination = '~/.local/share/git_mirrors/PRBSync'
 urls = ['git@github.com:ElizabethF2/PRBSync.git',
         'git@gitlab.com:ElizabethF2/PRBSync.git',
-        'git@codeberg.org:ElizabethF2/PRBSync.git', ]
+        'git@codeberg.org:ElizabethF2/PRBSync.git',
+        'git@bitbucket.org:ElizabethF2/PRBSync.git', ]
 
 [repos.Virtuator]
 source = '~/GDrive/Projects/Virtuator'
 destination = '~/.local/share/git_mirrors/Virtuator'
 urls = ['git@github.com:ElizabethF2/Virtuator.git',
         'git@gitlab.com:ElizabethF2/Virtuator.git',
-        'git@codeberg.org:ElizabethF2/Virtuator.git', ]
+        'git@codeberg.org:ElizabethF2/Virtuator.git',
+        'git@bitbucket.org:ElizabethF2/Virtuator.git', ]
 
 [repos.Queark]
 source = '~/GDrive/Projects/Queark'
 destination = '~/.local/share/git_mirrors/Queark'
 urls = ['git@github.com:ElizabethF2/Queark.git',
         'git@gitlab.com:ElizabethF2/Queark.git',
-        'git@codeberg.org:ElizabethF2/Queark.git', ]
+        'git@codeberg.org:ElizabethF2/Queark.git',
+        'git@bitbucket.org:ElizabethF2/Queark.git', ]
 
 [repos.Lockdown]
 source = '~/GDrive/Projects/Lockdown'
@@ -1166,7 +1171,8 @@ excluded_paths = ['**old', '**.txt']
 destination = '~/.local/share/git_mirrors/OS-Lockdown'
 urls = ['git@github.com:ElizabethF2/OS-Lockdown.git',
         'git@gitlab.com:ElizabethF2/OS-Lockdown.git',
-        'git@codeberg.org:ElizabethF2/OS-Lockdown.git', ]
+        'git@codeberg.org:ElizabethF2/OS-Lockdown.git',
+        'git@bitbucket.org:ElizabethF2/OS-Lockdown.git', ]
 
 [repos.Sessen]
 source = '~/OneDrive/Projects/Sessen'
@@ -1178,7 +1184,8 @@ excluded_paths = ['**.pem', '**.txt', '**.json', '**.db', '**.log', '**.pyc', '*
 destination = '~/.local/share/git_mirrors/Sessen'
 urls = ['git@github.com:ElizabethF2/Sessen.git',
         'git@gitlab.com:ElizabethF2/Sessen.git',
-        'git@codeberg.org:ElizabethF2/Sessen.git', ]
+        'git@codeberg.org:ElizabethF2/Sessen.git',
+        'git@bitbucket.org:ElizabethF2/Sessen.git', ]
 
 [repos.SandboxPy]
 source = '~/OneDrive/Projects/Sessen/sandboxpy'
@@ -1186,7 +1193,8 @@ excluded_paths = ['**__pycache__']
 destination = '~/.local/share/git_mirrors/SandboxPy'
 urls = ['git@github.com:ElizabethF2/SandboxPy.git',
         'git@gitlab.com:ElizabethF2/SandboxPy.git',
-        'git@codeberg.org:ElizabethF2/SandboxPy.git', ]
+        'git@codeberg.org:ElizabethF2/SandboxPy.git',
+        'git@bitbucket.org:ElizabethF2/SandboxPy.git', ]
 
 [repos.Readyr]
 source = '~/OneDrive/Projects/Sessen/Extensions/Readyr'
@@ -1194,7 +1202,8 @@ source = '~/OneDrive/Projects/Sessen/Extensions/Readyr'
 destination = '~/.local/share/git_mirrors/Readyr'
 urls = ['git@github.com:ElizabethF2/Readyr.git',
         'git@gitlab.com:ElizabethF2/Readyr.git',
-        'git@codeberg.org:ElizabethF2/Readyr.git', ]
+        'git@codeberg.org:ElizabethF2/Readyr.git',
+        'git@bitbucket.org:ElizabethF2/Readyr.git', ]
 
 [repos.MissionControl]
 source = '~/OneDrive/Projects/Sessen/Extensions/MissionControl'
@@ -1202,7 +1211,8 @@ excluded_paths = ['__pycache__', '*.json', 'client_config.js']
 destination = '~/.local/share/git_mirrors/MissionControl'
 urls = ['git@github.com:ElizabethF2/MissionControl.git',
         'git@gitlab.com:ElizabethF2/MissionControl.git',
-        'git@codeberg.org:ElizabethF2/MissionControl.git', ]
+        'git@codeberg.org:ElizabethF2/MissionControl.git',
+        'git@bitbucket.org:ElizabethF2/MissionControl.git', ]
 
 [repos.CharonRMM]
 source = '~/GDrive/Projects/CharonRMM'
@@ -1211,7 +1221,8 @@ excluded_paths = ['**.pem', '**.toml', '**scratch*', 'fix_rustdesk_key.py',
 destination = '~/.local/share/git_mirrors/CharonRMM'
 urls = ['git@github.com:ElizabethF2/CharonRMM.git',
         'git@gitlab.com:ElizabethF2/CharonRMM.git',
-        'git@codeberg.org:ElizabethF2/CharonRMM.git', ]
+        'git@codeberg.org:ElizabethF2/CharonRMM.git',
+        'git@bitbucket.org:ElizabethF2/CharonRMM.git', ]
 
 [repos.MinecraftGravity]
 source = '~/OneDrive/Projects/Mods/Minecraft/GravityJS'
@@ -1219,7 +1230,8 @@ excluded_paths = ['**-r1*', '*.mcpack']
 destination = '~/.local/share/git_mirrors/MinecraftGravity'
 urls = ['git@github.com:ElizabethF2/MinecraftGravity.git',
         'git@gitlab.com:ElizabethF2/MinecraftGravity.git',
-        'git@codeberg.org:ElizabethF2/MinecraftGravity.git', ]
+        'git@codeberg.org:ElizabethF2/MinecraftGravity.git',
+        'git@bitbucket.org:ElizabethF2/MinecraftGravity.git', ]
 
 [repos.PettyJSOS]
 source = '~/OneDrive/Projects/PettyJSOS'
@@ -1227,14 +1239,16 @@ excluded_paths = ['**v1*']
 destination = '~/.local/share/git_mirrors/PettyJSOS'
 urls = ['git@github.com:ElizabethF2/PettyJSOS.git',
         'git@gitlab.com:ElizabethF2/PettyJSOS.git',
-        'git@codeberg.org:ElizabethF2/PettyJSOS.git', ]
+        'git@codeberg.org:ElizabethF2/PettyJSOS.git',
+        'git@bitbucket.org:ElizabethF2/PettyJSOS.git', ]
 
 [repos.pTaskRunner]
 source = '~/GDrive/Projects/PerfM'
 destination = '~/.local/share/git_mirrors/pTaskRunner'
 urls = ['git@github.com:ElizabethF2/pTaskRunner.git',
         'git@gitlab.com:ElizabethF2/pTaskRunner.git',
-        'git@codeberg.org:ElizabethF2/pTaskRunner.git', ]
+        'git@codeberg.org:ElizabethF2/pTaskRunner.git',
+        'git@bitbucket.org:ElizabethF2/pTaskRunner.git', ]
 
 [repos.NPP_on_Kate]
 source = '~/OneDrive/Projects/NPP on Kate'
@@ -1242,7 +1256,8 @@ excluded_paths = ['**r1*', '*.txt']
 destination = '~/.local/share/git_mirrors/NPP_on_Kate'
 urls = ['git@github.com:ElizabethF2/NPP-on-Kate.git',
         'git@gitlab.com:ElizabethF2/NPP-on-Kate.git',
-        'git@codeberg.org:ElizabethF2/NPP-on-Kate.git', ]
+        'git@codeberg.org:ElizabethF2/NPP-on-Kate.git',
+        'git@bitbucket.org:ElizabethF2/NPP-on-Kate.git', ]
 
 [repos.GiantCursor]
 source = '~/OneDrive/Projects/GiantCursor'
@@ -1250,7 +1265,8 @@ excluded_paths = ['**.txt', '**.exe', '**.cur', 'bin', 'old']
 destination = '~/.local/share/git_mirrors/GiantCursor'
 urls = ['git@github.com:ElizabethF2/GiantCursor.git',
         'git@gitlab.com:ElizabethF2/GiantCursor.git',
-        'git@codeberg.org:ElizabethF2/GiantCursor.git', ]
+        'git@codeberg.org:ElizabethF2/GiantCursor.git',
+        'git@bitbucket.org:ElizabethF2/GiantCursor.git', ]
 
 [repos.ReflectiveNAS]
 source = '~/OneDrive/Projects/ReflectiveNAS'
@@ -1258,7 +1274,8 @@ source = '~/OneDrive/Projects/ReflectiveNAS'
 destination = '~/.local/share/git_mirrors/ReflectiveNAS'
 urls = ['git@github.com:ElizabethF2/ReflectiveNAS.git',
         'git@gitlab.com:ElizabethF2/ReflectiveNAS.git',
-        'git@codeberg.org:ElizabethF2/ReflectiveNAS.git', ]
+        'git@codeberg.org:ElizabethF2/ReflectiveNAS.git',
+        'git@bitbucket.org:ElizabethF2/ReflectiveNAS.git', ]
 
 [repos.EncryptedNasBase]
 source = '~/OneDrive/Projects/ReflectiveNAS/EncryptedNAS'
@@ -1278,7 +1295,8 @@ destination = '~/.local/share/git_mirrors/EncryptedNAS/README.md'
 destination = '~/.local/share/git_mirrors/EncryptedNAS'
 urls = ['git@github.com:ElizabethF2/EncryptedNAS.git',
         'git@gitlab.com:ElizabethF2/EncryptedNAS.git',
-        'git@codeberg.org:ElizabethF2/EncryptedNAS.git', ]
+        'git@codeberg.org:ElizabethF2/EncryptedNAS.git',
+        'git@bitbucket.org:ElizabethF2/EncryptedNAS.git', ]
 
 [repos.RedundantNAS]
 source = '~/OneDrive/Projects/RedundantNAS'
@@ -1286,14 +1304,16 @@ source = '~/OneDrive/Projects/RedundantNAS'
 destination = '~/.local/share/git_mirrors/RedundantNAS'
 urls = ['git@github.com:ElizabethF2/RedundantNAS.git',
         'git@gitlab.com:ElizabethF2/RedundantNAS.git',
-        'git@codeberg.org:ElizabethF2/RedundantNAS.git', ]
+        'git@codeberg.org:ElizabethF2/RedundantNAS.git',
+        'git@bitbucket.org:ElizabethF2/RedundantNAS.git', ]
 
 [repos.StorageMinder]
 source = '~/OneDrive/Projects/StorageMinder'
 destination = '~/.local/share/git_mirrors/StorageMinder'
 urls = ['git@github.com:ElizabethF2/StorageMinder.git',
         'git@gitlab.com:ElizabethF2/StorageMinder.git',
-        'git@codeberg.org:ElizabethF2/StorageMinder.git', ]
+        'git@codeberg.org:ElizabethF2/StorageMinder.git',
+        'git@bitbucket.org:ElizabethF2/StorageMinder.git', ]
 
 [repos.KnickKnack]
 source = '~/OneDrive/Projects/KnickKnack'
@@ -1301,7 +1321,8 @@ excluded_paths = ['**.txt', '**.exe', '**.nds', '**.elf', 'nds/build']
 destination = '~/.local/share/git_mirrors/KnickKnack'
 urls = ['git@github.com:ElizabethF2/KnickKnack.git',
         'git@gitlab.com:ElizabethF2/KnickKnack.git',
-        'git@codeberg.org:ElizabethF2/KnickKnack.git', ]
+        'git@codeberg.org:ElizabethF2/KnickKnack.git',
+        'git@bitbucket.org:ElizabethF2/KnickKnack.git', ]
 
 [repos.MarionetteAPI]
 source = '~/OneDrive/Projects/marionette'
@@ -1309,7 +1330,8 @@ excluded_paths = ['__pycache__']
 destination = '~/.local/share/git_mirrors/marionette_api'
 urls = ['git@github.com:ElizabethF2/marionette_wrapper.git',
         'git@gitlab.com:ElizabethF2/marionette_wrapper.git',
-        'git@codeberg.org:ElizabethF2/marionette_wrapper.git', ]
+        'git@codeberg.org:ElizabethF2/marionette_wrapper.git',
+        'git@bitbucket.org:ElizabethF2/marionette_wrapper.git', ]
 
 [repos.ResultsLogger]
 source = '~/OneDrive/Projects/ResultsLogger'
@@ -1317,7 +1339,8 @@ excluded_paths = ['__pycache__', 'Logs', 'PublicLogs']
 destination = '~/.local/share/git_mirrors/ResultsLogger'
 urls = ['git@github.com:ElizabethF2/ResultsLogger.git',
         'git@gitlab.com:ElizabethF2/ResultsLogger.git',
-        'git@codeberg.org:ElizabethF2/ResultsLogger.git', ]
+        'git@codeberg.org:ElizabethF2/ResultsLogger.git',
+        'git@bitbucket.org:ElizabethF2/ResultsLogger.git', ]
 
 [repos.PowerNotifier]
 source = '~/OneDrive/Projects/PowerNotifier'
@@ -1325,70 +1348,80 @@ excluded_paths = ['bin']
 destination = '~/.local/share/git_mirrors/PowerNotifier'
 urls = ['git@github.com:ElizabethF2/PowerNotifier.git',
         'git@gitlab.com:ElizabethF2/PowerNotifier.git',
-        'git@codeberg.org:ElizabethF2/PowerNotifier.git', ]
+        'git@codeberg.org:ElizabethF2/PowerNotifier.git',
+        'git@bitbucket.org:ElizabethF2/PowerNotifier.git', ]
 
 [repos.MelodAIc]
 source = '~/GDrive/Projects/Legacy/MelodAIc'
 destination = '~/.local/share/git_mirrors/MelodAIc'
 urls = ['git@github.com:ElizabethF2/MelodAIc.git',
         'git@gitlab.com:ElizabethF2/MelodAIc.git',
-        'git@codeberg.org:ElizabethF2/MelodAIc.git', ]
+        'git@codeberg.org:ElizabethF2/MelodAIc.git',
+        'git@bitbucket.org:ElizabethF2/MelodAIc.git', ]
 
 [repos.BattlefrontShader]
 source = '~/GDrive/Projects/Legacy/BattlefrontShader'
 destination = '~/.local/share/git_mirrors/BattlefrontShader'
 urls = ['git@github.com:ElizabethF2/BattlefrontShader.git',
         'git@gitlab.com:ElizabethF2/BattlefrontShader.git',
-        'git@codeberg.org:ElizabethF2/BattlefrontShader.git', ]
+        'git@codeberg.org:ElizabethF2/BattlefrontShader.git',
+        'git@bitbucket.org:ElizabethF2/BattlefrontShader.git', ]
 
 [repos.PotatoVideo]
 source = '~/GDrive/Projects/Legacy/PotatoVideo'
 destination = '~/.local/share/git_mirrors/PotatoVideo'
 urls = ['git@github.com:ElizabethF2/PotatoVideo.git',
         'git@gitlab.com:ElizabethF2/PotatoVideo.git',
-        'git@codeberg.org:ElizabethF2/PotatoVideo.git', ]
+        'git@codeberg.org:ElizabethF2/PotatoVideo.git',
+        'git@bitbucket.org:ElizabethF2/PotatoVideo.git', ]
 
 [repos.Game3DSjs]
 source = '~/GDrive/Projects/Legacy/Game3DSjs'
 destination = '~/.local/share/git_mirrors/Game3DSjs'
 urls = ['git@github.com:ElizabethF2/Game3DSjs.git',
         'git@gitlab.com:ElizabethF2/Game3DSjs.git',
-        'git@codeberg.org:ElizabethF2/Game3DSjs.git', ]
+        'git@codeberg.org:ElizabethF2/Game3DSjs.git',
+        'git@bitbucket.org:ElizabethF2/Game3DSjs.git', ]
 
 [repos.XboxRemotePlay]
 source = '~/GDrive/Projects/Legacy/XboxRemotePlay'
 destination = '~/.local/share/git_mirrors/XboxRemotePlay'
 urls = ['git@github.com:ElizabethF2/XboxRemotePlay.git',
         'git@gitlab.com:ElizabethF2/XboxRemotePlay.git',
-        'git@codeberg.org:ElizabethF2/XboxRemotePlay.git', ]
+        'git@codeberg.org:ElizabethF2/XboxRemotePlay.git',
+        'git@bitbucket.org:ElizabethF2/XboxRemotePlay.git', ]
 
 [repos.GTA_V_Mods]
 source = '~/GDrive/Projects/Legacy/GTA_V_Mods'
 destination = '~/.local/share/git_mirrors/GTA_V_Mods'
 urls = ['git@github.com:ElizabethF2/GTA-V-Mods.git',
         'git@gitlab.com:ElizabethF2/GTA-V-Mods.git',
-        'git@codeberg.org:ElizabethF2/GTA-V-Mods.git', ]
+        'git@codeberg.org:ElizabethF2/GTA-V-Mods.git',
+        'git@bitbucket.org:ElizabethF2/GTA-V-Mods.git', ]
 
 [repos.Lattyce]
 source = '~/GDrive/Projects/Legacy/Lattyce'
 destination = '~/.local/share/git_mirrors/Lattyce'
 urls = ['git@github.com:ElizabethF2/Lattyce.git',
         'git@gitlab.com:ElizabethF2/Lattyce.git',
-        'git@codeberg.org:ElizabethF2/Lattyce.git', ]
+        'git@codeberg.org:ElizabethF2/Lattyce.git',
+        'git@bitbucket.org:ElizabethF2/Lattyce.git', ]
 
 [repos.LeapMotionScripts]
 source = '~/GDrive/Projects/Legacy/LeapMotionScripts'
 destination = '~/.local/share/git_mirrors/LeapMotionScripts'
 urls = ['git@github.com:ElizabethF2/Leap-Motion-Scripts.git',
         'git@gitlab.com:ElizabethF2/Leap-Motion-Scripts.git',
-        'git@codeberg.org:ElizabethF2/Leap-Motion-Scripts.git', ]
+        'git@codeberg.org:ElizabethF2/Leap-Motion-Scripts.git',
+        'git@bitbucket.org:ElizabethF2/Leap-Motion-Scripts.git', ]
 
 [repos.MarkovChainScripts]
 source = '~/GDrive/Projects/Legacy/MarkovChainScripts'
 destination = '~/.local/share/git_mirrors/MarkovChainScripts'
 urls = ['git@github.com:ElizabethF2/Markov-Chain-Scripts.git',
         'git@gitlab.com:ElizabethF2/Markov-Chain-Scripts.git',
-        'git@codeberg.org:ElizabethF2/Markov-Chain-Scripts.git', ]
+        'git@codeberg.org:ElizabethF2/Markov-Chain-Scripts.git',
+        'git@bitbucket.org:ElizabethF2/Markov-Chain-Scripts.git', ]
 
 [repos.RNG]
 source = '~/GDrive/Projects/rng.py'
@@ -1424,7 +1457,8 @@ kept_paths = ['rng.py', 'podcast_downloader.py', 'url_bulk_opener.htm',
 destination = '~/.local/share/git_mirrors/Miscellaneous'
 urls = ['git@github.com:ElizabethF2/Miscellaneous.git',
         'git@gitlab.com:ElizabethF2/Miscellaneous.git',
-        'git@codeberg.org:ElizabethF2/Miscellaneous.git', ]
+        'git@codeberg.org:ElizabethF2/Miscellaneous.git',
+        'git@bitbucket.org:ElizabethF2/Miscellaneous.git', ]
 
 [repos.Miscellaneous.renames]
 'miscellaneous.md' = 'README.md'
