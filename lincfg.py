@@ -13,8 +13,6 @@ def ensure_user_exists():
     if desired_username in desired_wheel_users:
       subprocess.run(['usermod', '-aG', 'wheel', desired_username])
 
-get_lincfg_bin_path = lambda: fixpath('$PREFIX/bin/lincfg' if is_termux() else '~root/.local/bin/lincfg')
-
 flag_def = [
   ('--scan',        '-s', 'Run virus, rootkit and health scanners'),
   ('--interact',    '-i', 'Run config steps which require interaction'),
@@ -218,7 +216,7 @@ chupdate () {
 
 import sys, os, subprocess, shlex, shutil, tempfile, re, urllib.request, base64
 import textwrap, inspect, json, stat, socket, hashlib, configparser, site, glob
-import pprint, errno, time, functools, pwd
+import pprint, errno, time, functools, pwd, fnmatch
 
 small_scripts = {}
 
@@ -264,6 +262,32 @@ exec busybox sh <<EOF
 EOF
 '''.lstrip()
 
+small_scripts[f'~root/.local/bin/krdp-helper'] = r'''
+#!/usr/bin/env python3
+import sys, subprocess, signal, pwd
+name = sys.argv[1]
+sudo_cmd_prefix = (
+  'sudo',
+  f'XDG_RUNTIME_DIR=/run/user/{pwd.getpwnam(name).pw_uid}',
+  'WAYLAND_DISPLAY=wayland-0',
+  '-u', name, '--',
+)
+subprocess.check_call(sudo_cmd_prefix + (
+  'flatpak', 'permission-set', 'kde-authorized', 'remote-desktop', '', 'yes',
+))
+cmd = sudo_cmd_prefix + (
+  'krdpserver', '--username', 'Liz', '--password', 'hunter2',
+)
+while True:
+  print(proc := subprocess.run(cmd), '\n\n\n')
+  if proc.returncode != -signal.SIGSEGV:
+    break
+subprocess.check_call(sudo_cmd_prefix + (
+  'flatpak', 'permission-remove', 'kde-authorized', 'remote-desktop', '',
+))
+sys.exit(proc.returncode)
+'''.lstrip()
+
 small_scripts[f'~{desired_username}/.local/bin/maxfan'] = r'''
 #!/bin/sh
 echo maxfan MaxFan > /proc/$$/comm
@@ -302,23 +326,102 @@ kill -HUP $PPID || exit $?
 small_scripts[f'~{desired_username}/.local/bin/ptr'] = '''
 #!/bin/sh
 exec python ~/.local/share/ptaskrunner/task_router.py
-'''
+'''.lstrip()
 
 small_scripts[f'~{desired_username}/.local/bin/sd'] = '''
 #!/bin/sh
 echo ScreenDoc > /proc/$$/comm
 sleep 8
 exec kscreen-doctor --dpms off
-'''
+'''.lstrip()
+
+global_small_scripts = {
+
+'$PREFIX/bin/lincfg-gui': r'''
+#!/bin/sh
+printf LinCFG >> /proc/$$/comm
+simplemenu 'Run LinCFG Online' 'Run LinCFG Offline' 'Abort'
+ret="$?"
+if [ "$ret" = "0" ] ; then
+  sudo /usr/bin/python3 -I /root/.local/bin/lincfg
+elif [ "$ret" = "1" ] ; then
+  sudo /usr/bin/python3 -I /root/.local/bin/lincfg -o
+else
+  exit "$ret"
+fi
+echo
+echo '[Press ENTER when done]'
+read
+''',
+
+'$PREFIX/bin/emergency-signed-run': r'''
+#!/bin/sh
+conf="$(cat "/etc/emergency-signed-run.conf")" && eval "$conf"
+if [ "x$PASSWORD" = "x" ] ; then
+  echo "Misconfigured password!" ; exit 1
+fi
+type sha512sum 2>/dev/null >/dev/null
+if [ "$?" != "0" ] ; then
+  echo "Missing sha512sum" ; exit 1
+fi
+inp="$(cat <&0)"
+if [ "$1" = "-e" ] ; then
+  mixed="$(printf '%s\n%s' "$PASSWORD" "$inp")"
+  hash="$(printf '%s' "$mixed" | sha512sum | head -c 128)"
+  printf '%s\n%s' "$hash" "$inp"
+  exit $?
+fi
+untrusted_hash="$(printf '%s' "$inp" | head -c 128)"
+untrusted_script="$(printf '%s' "$inp" | tail -c +130)"
+mixed="$(printf '%s\n%s' "$PASSWORD" "$untrusted_script")"
+hash="$(printf '%s' "$mixed" | sha512sum | head -c 128)"
+if [ "$hash" = "$untrusted_hash" ] ; then
+  printf '%s' "$untrusted_script" | ${SHELL:-sh}
+  exit $?
+else
+  echo "Hashes don't match!" ; exit 1
+fi
+''',
+
+}
 
 @tasks.append
 def make_and_update_small_scripts():
-  for path, code in small_scripts.items():
+  for path, code in (small_scripts | global_small_scripts).items():
+    code = code.lstrip()
     p, existing_code = read_config(path, default_contents = '')
     if existing_code != code:
       u = desired_username if path.startswith(f'~{desired_username}') else None
       write_config(p, code, user = u)
-      os.chmod(p, OWNER_CAN_RWX)
+      os.chmod(p, OWNER_CAN_RWX if path in small_scripts else ANYONE_CAN_RX)
+
+global_resources = {
+
+'/usr/share/applications/lincfg.desktop': '''
+[Desktop Entry]
+Name=LinCFG
+GenericName=System Maintenance Utility
+Comment=Run LinCFG
+
+Icon=run-build-configure-symbolic
+Type=Application
+Categories=System;Development;
+Keywords=system;update;updates;
+
+Exec=konsole --new-tab -e lincfg-gui
+Terminal=true
+StartupNotify=false
+'''.lstrip(),
+
+}
+
+@tasks.append
+def make_and_update_resources():
+  for path, desired_contents in global_resources.items():
+    p, existing_contents = read_config(path, default_contents = '')
+    if existing_contents != desired_contents:
+      write_config(p, desired_contents)
+      os.chmod(p, ANYONE_CAN_R)
 
 @functools.cache
 def get_bashrc_skel():
@@ -366,6 +469,8 @@ common_bwrap_command_with_results_logger = f'''
   --bind-try ~/OneDrive ~/OneDrive \\
   --bind-try ~/GDrive ~/GDrive \\
 '''.strip()
+
+
 
 user_shell_shims = {
 
@@ -493,6 +598,22 @@ kwin_wayland --replace || exit $?
 systemctl restart --user plasma-plasmashell || exit $?
 exec systemctl restart --user plasma-powerdevil
 ''',
+
+
+
+# 'sgd': fr'''
+# #!/bin/sh
+# echo gateway > /proc/$$/comm
+# ssh -NL 5022:127.0.0.1:5022 archserver \
+#   || exit $?
+# ''',
+
+# 'skdm': fr'''
+# #!/bin/sh
+# echo krdp > /proc/$$/comm
+# ssh -tL 5023:127.0.0.1:3389 cb \
+#   sudo /root/.local/bin/krdp-helper Alice || exit $?
+# ''',
 }
 
 @tasks.append
@@ -553,6 +674,10 @@ Defaults env_keep += "IGNORE_IF_ON_BATTERY"
 %wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/auto_tpm_encrypt --ensure_booted_os_is_sealed
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/persistent_tmux {desired_username}
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/systemd-run -- /usr/bin/alt_os_util switch_gpu_inner {desired_username}
+%wheel ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
+
+
+# %wheel ALL=(root) NOPASSWD: /root/.local/bin/krdp-helper Alice
 '''.lstrip()
 
 @tasks.append
@@ -806,24 +931,28 @@ def ensure_desired_executables_exist_but_do_not_update_any_that_already_exist():
 #   f'~{desired_username}/GDrive/Projects/Linux/lincfg.py',
 #   '~root/.local/bin/lincfg')
 
-lincfg_cloud_path = f'~{desired_username}/GDrive/Projects/Linux/lincfg.py'
+OWNER_CAN_RWX = 0o700
+OWNER_CAN_RW  = 0o600
+ANYONE_CAN_R  = 0o644
+ANYONE_CAN_RX = 0o755
+
+lincfg_project = {
+  'sources': [f'~{desired_username}/GDrive/Projects/Linux/lincfg.py'],
+  'mode': OWNER_CAN_RWX,
+}
+
+get_lincfg_bin_path = lambda: fixpath('$PREFIX/bin/lincfg' if is_termux() else '~root/.local/bin/lincfg')
 
 @lambda f: tasks.insert(0, f)
 def ensure_lincfg_is_current():
   if not which('diffcp'):
     return
-  src = fixpath(lincfg_cloud_path)
-  if not os.path.isfile(src):
-    src = sys.argv[0]
-  lincfg_bin = fixpath(get_lincfg_bin_path())
-  rc = diffcp_copy(
-    'lincfg',
-    lincfg_bin,
-    sources = (src,),
-    mode = OWNER_CAN_RWX,
-  )
+  lincfg_project['destination'] = get_lincfg_bin_path()
+  rc = diffcp_copy('lincfg', **lincfg_project)
   if rc == 0:
-    sys.exit(subprocess.run([lincfg_bin] + sys.argv[1:]).returncode)
+    sys.exit(
+      subprocess.run([lincfg_project['destination']] + sys.argv[1:]).returncode
+    )
 
 rmtfs_var_path = '/var/lib/rmtfs'
 rmtfs_service_paths = [
@@ -883,17 +1012,17 @@ arch_linux_prbsync_paths_to_hydrate = {'GDrive', 'OneDrive'}
 postmarketos_prbsync_paths_to_hydrate = {'GDriveProjects', 'OneDriveProjects'}
 termux_prbsync_paths_to_hydrate = {'GDriveProjects', 'OneDriveProjects'}
 
-paths_to_bundle = {
-  'full': (
-    local_cloud_drive_path,
-    f'~{desired_username}/OneDrive',
-  ),
-  'minimal': (
-    os.path.join(local_cloud_drive_path, 'Projects'),
-    f'~{desired_username}/OneDrive/Projects/Sessen',
-    f'~{desired_username}/OneDrive/Projects/Game_Release_Checker',
-  ),
-}
+BUNDLE_PATHS = [
+  local_cloud_drive_path,
+  f'~{desired_username}/OneDrive',
+]
+
+MINIMAL_BUNDLE_EXCLUDED_PATTERNS = [
+  '**.db', '**.txt', '**.csv', '**.log',
+  'Extensions', 'Logs', 'PublicLogs', 'EncryptedNAS', 'GameSync',
+]
+
+# tar xf ~/Downloads/lincfg_bundle.tar.xz lincfg_bundle/GDrive --strip-components=1
 
 @tasks.append
 def handle_bundle_related_operations():
@@ -927,29 +1056,47 @@ def handle_bundle_related_operations():
       else:
         os.mkdir(local_path)
       shutil.copytree(bundle_path, local_path, dirs_exist_ok = True)
-  if flags('bundle'):
-    k = 'LINCFG_BUNDLE_DEST'
-    dest = os.environ.get(k)
-    if not dest:
-      raise KeyError(f'Set {k} to the destination for your bundle')
+  if dest := os.environ.get('LINCFG_BUNDLE_DEST'):
     bundle_size = (
       os.environ.get('LINCFG_BUNDLE_SIZE', 'minimal').lower().strip()
     )
-    pfx = f'~{desired_username}/'
-    bundle_root = os.path.join(dest, 'lincfg_bundle')
-    os.mkdir(bundle_root)
-    for path in paths_to_bundle[bundle_size]:
-      if not path.startswith(pfx):
-        raise RuntimeError(f'Unexpected path: {path}')
-      dest = os.path.join(bundle_root, path[len(pfx):])
-      src = fixpath(path)
-      shutil.copytree(src, dest)
+    if bundle_size in ('max', 'full'):
+      paths_to_bundle = FULL_BUNDLE_PATHS
+    elif bundle_size in ('min', 'minimal', 'projects', 'project'):
+      paths_to_bundle = []
+      exclude = [] if bundle_size.startswith('project') else \
+                MINIMAL_BUNDLE_EXCLUDED_PATTERNS
+      for project in all_locally_cached_projects.values():
+        r = fixpath(project.get('cwd', os.path.curdir))
+        for source in get_project_sources(project):
+          if any((fnmatch.fnmatch(source, i) for i in exclude)):
+            continue
+          paths_to_bundle.append(os.path.join(r, source))
+    else:
+      raise ValueError('Invalid bundle size: {}'.format(repr(bundle_size)))
+    pfx = fixpath(f'~{desired_username}') + os.path.sep
+    st = os.stat(dest)
+    os.mkdir(bundle_root := os.path.join(dest, 'lincfg_bundle'))
+    os.chown(bundle_root, st.st_uid, st.st_gid)
+    for src in sorted(set(paths_to_bundle)):
+      if not src.startswith(pfx):
+        raise RuntimeError(f'Unexpected path: {src}')
+      dest = os.path.join(bundle_root, src[len(pfx):])
+      makedirs(os.path.dirname(dest))
+      try:
+        shutil.copytree(src, dest)
+      except NotADirectoryError:
+        shutil.copy2(src, dest)
     make_bundle_script = fixpath('~/.local/share/lincfg/make_bundle.sh')
     subprocess.check_call((get_shell(), make_bundle_script),
                            env = dict(os.environ) | {
                              'LINCFG_BUNDLE_ROOT': bundle_root,
                              'LINCFG_BUNDLE_SIZE': bundle_size,
                            })
+    arc = bundle_root + '.tar.xz'
+    subprocess.check_call(('tar', 'cJf', arc, os.path.basename(bundle_root)),
+                          cwd = os.path.dirname(bundle_root))
+    os.chown(arc, st.st_uid, st.st_gid)
 
 user_files_with_exact_contents[f'~{desired_username}/.config/perfm.toml'] = '''
 # [actions.RustDesk]
@@ -1829,7 +1976,7 @@ path = '/mnt/ReflectiveNAS'
 
 '''.lstrip()
 
-user_files_with_exact_contents[f'~{desired_username}/.ssh/config'] = '''
+user_files_with_exact_contents[f'~{desired_username}/.ssh/config'] = f'''
 # Host linux_vm
 #   HostName localhost
 #   Port 6022
@@ -2939,11 +3086,6 @@ def ensure_no_evidence_of_rat():
       raise Exception(message, tdir)
     os.rmdir(tdir)
 
-OWNER_CAN_RWX = 0o700
-OWNER_CAN_RW  = 0o600
-ANYONE_CAN_R  = 0o644
-ANYONE_CAN_RX = 0o755
-
 SYSTEM_SITE_PACKAGES = site.getsitepackages()[0]
 
 common_locally_cached_projects = {
@@ -2959,9 +3101,8 @@ common_locally_cached_projects = {
   },
   'simplemenu': {
     'sources': [f'~{desired_username}/GDrive/Projects/Linux/simplemenu.py'],
-    'destination': f'~{desired_username}/.local/bin/simplemenu',
-    'user': desired_username,
-    'mode': OWNER_CAN_RWX,
+    'destination': f'$PREFIX/bin/simplemenu',
+    'mode': ANYONE_CAN_RX,
   },
   'mission_control_lite_lib': {
     'sources': [
@@ -2976,6 +3117,14 @@ common_locally_cached_projects = {
       f'~{desired_username}/OneDrive/Projects/StorageMinder/cleanup.sh'
     ],
     'destination': f'~root/.local/bin/storage_minder_cleanup',
+    'mode': OWNER_CAN_RWX,
+  },
+}
+
+common_postmarketos_locally_cached_projects = {
+  'nvdata_tool': {
+    'sources': [f'~{desired_username}/GDrive/Projects/Lockdown/nvdata_tool/nvdata_tool.py'],
+    'destination': f'~/.local/bin/nvdata_tool',
     'mode': OWNER_CAN_RWX,
   },
 }
@@ -3246,13 +3395,33 @@ arch_linux_locally_cached_projects = {
   },
 }
 
+all_locally_cached_projects = (
+  common_locally_cached_projects |
+  common_personal_locally_cached_projects |
+  desktop_locally_cached_projects |
+  personal_desktop_locally_cached_projects |
+  arch_linux_locally_cached_projects |
+  common_postmarketos_locally_cached_projects |
+  {'lincfg': lincfg_project}
+)
+
+def get_project_sources(project):
+  if cwd := project.get('cwd'):
+    cwd = fixpath(cwd)
+  sources = [fixpath(s) for s in project.get('sources', ())]
+  for pattern in project.get('source_patterns', []):
+    sources += glob.glob(fixpath(pattern), root_dir = cwd)
+  exclude = project.get('exclude_patterns', ())
+  return sorted(filter(
+    lambda source: not any((fnmatch.fnmatch(source, i) for i in exclude)),
+    sources,
+  ))
+
 def diffcp_copy(name, destination, **kwargs):
-  sources = [fixpath(s) for s in kwargs.get('sources', [])]
   if cwd := kwargs.get('cwd'):
     cwd = fixpath(cwd)
-  for pattern in kwargs.get('source_patterns', []):
-    sources += glob.glob(fixpath(pattern), root_dir = cwd)
   user = kwargs.get('user')
+  sources = get_project_sources(kwargs)
   if len(sources) > 1:
     makedirs(destination, user = user)
   else:
@@ -3295,6 +3464,8 @@ def cache_projects_via_diffcp():
       projects |= personal_desktop_locally_cached_projects
   if is_arch_linux():
     projects |= arch_linux_locally_cached_projects
+  if is_postmarketos():
+    projects |= common_postmarketos_locally_cached_projects
   for project_name, project in projects.items():
     kwargs = project.copy()
     destination = kwargs.pop('destination')
@@ -3937,8 +4108,8 @@ def make_virtuator_symlink():
   if not os.path.exists(symlink_path):
     os.symlink(target, symlink_path)
 
-services = {}
-disabled_services = set()
+enabled_services = {}
+disabled_services = {}
 
 luks_partition_script_path = '~/.local/bin/consolidated_startup_script'
 luks_key_path = '/etc/LUKS'
@@ -3969,7 +4140,7 @@ runuser -u{desired_username} -- prbsync auto_sync
 systemctl start Sessen
 '''.strip()
 
-@lambda f: services.setdefault('ConsolidatedStartupScript', f)
+@lambda f: enabled_services.setdefault('ConsolidatedStartupScript', f)
 def get_desired_luks_partition_service():
   if not os.path.exists(pool_mount_point):
     return
@@ -3996,9 +4167,7 @@ KillSignal=SIGINT
 WantedBy=display-manager.service
 '''.lstrip()
 
-disabled_services.add('Sessen')
-
-@lambda f: services.setdefault('Sessen', f)
+@lambda f: disabled_services.setdefault('Sessen', f)
 def get_desired_sessen_service():
   if not is_arch_linux():
     return None
@@ -4036,7 +4205,7 @@ RestartSec=_TIMEOUT
 WantedBy=default.target
 '''.lstrip()
 
-@lambda f: services.setdefault('MissionControlLite', f)
+@lambda f: enabled_services.setdefault('MissionControlLite', f)
 def get_desired_mclite_service():
   if not os.path.isfile(fixpath(mclite_daemon_path)):
     return None
@@ -4056,7 +4225,7 @@ def get_desired_mclite_service():
   server = desktop_locally_cached_projects['mission_control_lite_server']
   server = server['destination']
   repair = desktop_locally_cached_projects['mission_control_lite_repair']
-  repair = repair['destination']
+  repair = which('true') if is_parent_pc() else repair['destination']
   return (
     mclite_service_template
       .replace('_DAEMON', fixpath(mclite_daemon_path))
@@ -4078,9 +4247,7 @@ ExecStart=_START
 Restart=on-failure
 '''.lstrip()
 
-disabled_services.add('Gamepadify')
-
-@lambda f: services.setdefault('Gamepadify', f)
+@lambda f: disabled_services.setdefault('Gamepadify', f)
 def get_desired_gamepadify_service():
   cfg = arch_linux_locally_cached_projects['gamepadify_config']
   cfg = fixpath(cfg['destination'])
@@ -4088,13 +4255,37 @@ def get_desired_gamepadify_service():
     return None
   return gamepadify_service_template.replace('_START', cfg)
 
+ssh_reverse_proxy_service_template = '''
+[Unit]
+Description=SSH Reverse Proxy
+
+[Service]
+Type=simple
+ExecStart=ssh -NR $PORT:127.0.0.1:22 archserver_$ID
+KillSignal=SIGINT
+Restart=on-failure
+'''.lstrip()
+
+# GatewayPorts yes
+
+@lambda f: disabled_services.setdefault('ssh_reverse_proxy', f)
+def get_desired_gamepadify_service():
+  if not is_parent_pc():
+    return None
+  return (
+    ssh_reverse_proxy_service_template
+      .replace('$PORT', str(PORTS[get_id()+'_ssh']))
+      .replace('$ID', get_id())
+  )
+
+all_services = enabled_services | disabled_services
 service_root = '/etc/systemd/system'
 
 @tasks.append
 def generate_services():
   if not (systemctl := which('systemctl')):
     return
-  for service_name, get_desired_service in services.items():
+  for service_name, get_desired_service in all_services.items():
     if not (desired_service := get_desired_service()):
       continue
     service_path = os.path.join(service_root, service_name + '.service')
@@ -4105,10 +4296,26 @@ def generate_services():
     if not service and service_name not in disabled_services:
       subprocess.check_call((systemctl, 'enable', os.path.basename(p)))
 
+ROOT_SSH_CONFIG_TEMPLATE = '''
+
+'''.lstrip()
+
+@tasks.append
+def generate_root_ssh_config():
+  if not is_parent_pc():
+    return
+  desired_ssh_config = (
+    ROOT_SSH_CONFIG_TEMPLATE
+      .replace('$HOSTNAME', gethostname())
+      .replace('$ID', get_id())
+  )
+  p, ssh_config = read_config('~/.ssh/config', default_contents = '')
+  if ssh_config != desired_ssh_config:
+    write_config(p, desired_ssh_config)
+
 @tasks.append
 def update_app_cache():
-  kbuildsycoca = which('kbuildsycoca6')
-  if not kbuildsycoca:
+  if not (kbuildsycoca := which('kbuildsycoca6')):
     return
   subprocess.check_call(('runuser', '-u'+desired_username, '--',
                          kbuildsycoca, '--noincremental'))

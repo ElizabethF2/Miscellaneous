@@ -6,7 +6,12 @@
 
 mount /dev/disk/by-partlabel/BOOT /efi
 if [ -f /efi/proxy_to_windows.flag ]; then
-  next="$(efibootmgr | grep -oP '\d+(?=.+?Windows\t)')"
-  efibootmgr --bootnext "$next"
-  reboot
+  next="$(efibootmgr | grep -oP '\d+(?=.+?Windows\t)' -m 1)"
+  if [ "x$next" = "x" ] ; then
+    next="$(efibootmgr | grep -oP '\d+(?=.+?Windows Boot Manager\t)' -m 1)"
+  fi
+  if [ "x$next" != "x" ] ; then
+    efibootmgr --bootnext "$next"
+    reboot
+  fi
 fi
