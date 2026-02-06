@@ -16,13 +16,22 @@ def ensure_user_exists():
 flag_def = [
   ('--scan',        '-s', 'Run virus, rootkit and health scanners'),
   ('--interact',    '-i', 'Run config steps which require interaction'),
-  ('--undesired',   '-r', 'Interactly removes any undesired packages.'),
-  ('--bundle',      '-b', 'Generate a bundle which can be copied to a thumb drive.'), # TODO
+  ('--undesired',   '-r', 'Interactively removes any undesired packages.'),
   ('--fpoverrides', '-f', 'Reset non-lincfg system-level flatpak permission'),
   ('--offline',     '-o', 'Skips any sections that require the internet'),
-  ('--init',        '-n', 'Interactive initial setup to format a drive, pacstrap, etc'), # TODO
   ('--help',        '-h', 'Show this help screen'),
 ]
+
+swap_file_path = '/var/swapfile'
+swap_file_cmd = ('swapon', '-p2', swap_file_path)
+
+@tasks.append
+def ensure_swap_file_enable_if_present():
+  if not os.path.isfile(swap_file_path):
+    return
+  _, swaps = read_config('/proc/swaps')
+  if ('\n' + swap_file_path) not in swaps:
+    subprocess.check_call(swap_file_cmd)
 
 past_pacman_packages = '''
   gamescope packagekit-qt6 maliit-keyboard squeekboard linux-zen ydotool yasm nasm powertop d-spy alsa-utils openrgb
@@ -31,17 +40,19 @@ past_pacman_packages = '''
 '''.split()
 
 common_pacman_packages = '''
-  bash micro less tmux podman grub which sudo lynx
-  python python-cryptography python-requests python-pillow python-docs python-qtpy python-pyqt6
-  linux-firmware git flatpak flatpak-kcm plasma-workspace kate konsole dolphin sddm ntp grub rclone
-  rkhunter lynis arch-audit lsof clamav ed noto-fonts-cjk noto-fonts-emoji noto-fonts iwd networkmanager
-  partitionmanager arch-install-scripts bluez vulkan-radeon spectacle dosfstools baobab efibootmgr amd-ucode fwupd
-  btrfs-progs sbsigntools sbsigntools parted base tpm2-tools plasma-meta plasma-sdk xdg-desktop-portal-gtk man-db
-  bsd-games words busybox openssh firewalld xdotool libappindicator-gtk3 gst-plugin-pipewire chntpw
-  power-profiles-daemon ollama-rocm fcitx5 fcitx5-qt fcitx5-configtool fcitx5-mozc nethogs htop btop bind
-  amdgpu_top nvtop sshfs archiso aspell aspell-en sbctl zip unzip powertop trash-cli kscreen kdeplasma-addons ark
-  pacman-contrib python-lsp-server scrcpy bluez-utils bluez-obex vorbis-tools time lshw inxi ntfs-3g usbutils
-  alsa-utils qemu-user-static-binfmt qemu-system-x86 qemu-img edk2-ovmf dos2unix patch mkinitcpio imagemagick linux
+  base linux linux-firmware python bash micro busybox tmux efibootmgr networkmanager tpm2-tools btrfs-progs sbsigntools
+  dosfstools arch-install-scripts openssh mkinitcpio
+'''.split()
+
+main_pacman_packages = '''
+  less podman which sudo lynx python-cryptography python-requests python-pillow python-docs python-qtpy python-pyqt6
+  git flatpak flatpak-kcm plasma-workspace kate konsole dolphin sddm ntp rclone rkhunter lynis arch-audit lsof clamav
+  ed noto-fonts-cjk noto-fonts-emoji noto-fonts iwd partitionmanager vulkan-radeon spectacle baobab amd-ucode fwupd
+  parted plasma-meta plasma-sdk xdg-desktop-portal-gtk man-db bsd-games words busybox firewalld xdotool chntpw htop
+  libappindicator-gtk3 gst-plugin-pipewire power-profiles-daemon ollama-rocm fcitx5 fcitx5-qt fcitx5-configtool
+  fcitx5-mozc nethogs  bind amdgpu_top nvtop sshfs archiso aspell aspell-en sbctl zip unzip powertop trash-cli kscreen
+  kdeplasma-addons ark pacman-contrib python-lsp-server scrcpy bluez bluez-utils bluez-obex vorbis-tools time lshw inxi
+  ntfs-3g usbutils alsa-utils qemu-user-static-binfmt qemu-system-x86 qemu-img edk2-ovmf dos2unix patch imagemagick
 '''.split()
 
 temporarily_pinned_pacman_packages = '''
@@ -57,7 +68,7 @@ pacman_cmd_prefix = 'pacman -Syu --needed --noconfirm'.split()
 postmarketos_packages = '''
   python3 python3-doc micro micro-doc tmux tmux-doc bsd-games bsd-games-doc busybox-doc flatpak flatpak-doc
   rclone rclone-doc man-db man-pages networkmanager-doc alpine-doc aspell aspell-en aspell-doc bash-doc
-  sudo sudo-doc !doas-sudo-shim curl curl-doc baobab baobab-doc cryptsetup-doc findutils findutils-doc
+  sudo sudo-doc doas doas-doc !doas-sudo-shim curl curl-doc baobab baobab-doc cryptsetup-doc findutils findutils-doc
   flashrom flashrom-doc waydroid iptables-doc iproute2-minimal ufw ufw-doc iproute2-ss sshfs sshfs-doc py3-cryptography
   bash scrcpy redsocks htop clamav coreutils bind-tools
 '''.split()
@@ -74,10 +85,13 @@ termux_packages = '''
 
 def get_desired_packages(include_aur = False):
   if is_arch_linux():
-    if in_container():
-      packages = common_pacman_packages + container_pacman_packages
-    else:
-      packages = common_pacman_packages + temporarily_pinned_pacman_packages
+    packages = common_pacman_packages
+    if not is_recovery():
+      packages += main_pacman_packages
+      if in_container():
+        packagess += container_pacman_packages
+      else:
+        packages += temporarily_pinned_pacman_packages
     if include_aur:
       packages += [p[0] for p in aur_packages] + \
                   aur_packages_installed_via_aur_helper
@@ -179,6 +193,13 @@ def ensure_desired_shell_set():
       subprocess.check_call(('chsh', '-s', shell, p.pw_name))
 
 bashrc_skel_path = '/etc/skel/.bashrc'
+fallback_bashrc_skel = r'''
+[[ $- != *i* ]] && return
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+PS1='[\u@\h \W]\$ '
+'''.lstrip()
+
 user_bashrc_path = f'~{desired_username}/.bashrc'
 desired_user_bashrc_suffix = '''
 export PATH=$PATH:$HOME/.local/bin
@@ -249,7 +270,9 @@ small_scripts['~root/.local/bin/maxfan'] = r'''
 #!/bin/sh
 export HWMONROOT="$(dirname "$(echo /sys/class/hwmon/*/pwm4)")"
 echo "HWMONROOT = '$HWMONROOT'"
-[ "x$HWMONROOT" = "x" ] && exit 1
+if [ "x$HWMONROOT" = "x" ] ; then
+  echo 'Missing HWMONROOT' ; exit 1
+fi
 exec busybox sh <<EOF
   echo MAXFAN > /proc/$$/comm
   while true ; do
@@ -262,13 +285,15 @@ exec busybox sh <<EOF
 EOF
 '''.lstrip()
 
-small_scripts[f'~root/.local/bin/krdp-helper'] = r'''
+small_scripts[f'~root/.local/bin/krdp-helper'] = fr'''
 #!/usr/bin/env python3
-import sys, subprocess, signal, pwd
+import sys, subprocess, signal, shutil, pwd
 name = sys.argv[1]
+if not (krdpserver := shutil.which('krdpserver')):
+  sys.exit('Missing krdpserver')
 sudo_cmd_prefix = (
   'sudo',
-  f'XDG_RUNTIME_DIR=/run/user/{pwd.getpwnam(name).pw_uid}',
+  'XDG_RUNTIME_DIR=/run/user/' + str(pwd.getpwnam(name).pw_uid),
   'WAYLAND_DISPLAY=wayland-0',
   '-u', name, '--',
 )
@@ -276,7 +301,7 @@ subprocess.check_call(sudo_cmd_prefix + (
   'flatpak', 'permission-set', 'kde-authorized', 'remote-desktop', '', 'yes',
 ))
 cmd = sudo_cmd_prefix + (
-  'krdpserver', '--username', 'Liz', '--password', 'hunter2',
+  'krdpserver', '--username', '{desired_username}', '--password', 'hunter2',
 )
 while True:
   print(proc := subprocess.run(cmd), '\n\n\n')
@@ -335,17 +360,21 @@ sleep 8
 exec kscreen-doctor --dpms off
 '''.lstrip()
 
+emergency_signed_run_conf_path = '/etc/emergency-signed-run.conf'
+
 global_small_scripts = {
 
-'$PREFIX/bin/lincfg-gui': r'''
+'$PREFIX/bin/gui-lincfg': r'''
 #!/bin/sh
 printf LinCFG >> /proc/$$/comm
 simplemenu 'Run LinCFG Online' 'Run LinCFG Offline' 'Abort'
 ret="$?"
 if [ "$ret" = "0" ] ; then
-  sudo /usr/bin/python3 -I /root/.local/bin/lincfg
+  sudo /usr/bin/python3 -I /root/.local/bin/lincfg \
+    2>&1 | logger -s -t "LinCFG-GUI-$$"
 elif [ "$ret" = "1" ] ; then
-  sudo /usr/bin/python3 -I /root/.local/bin/lincfg -o
+  sudo /usr/bin/python3 -I /root/.local/bin/lincfg -o \
+    2>&1 | logger -s -t "LinCFG-GUI-$$"
 else
   exit "$ret"
 fi
@@ -354,9 +383,9 @@ echo '[Press ENTER when done]'
 read
 ''',
 
-'$PREFIX/bin/emergency-signed-run': r'''
+'$PREFIX/bin/emergency-signed-run': (r'''
 #!/bin/sh
-conf="$(cat "/etc/emergency-signed-run.conf")" && eval "$conf"
+conf="$(cat "_CONF_PATH")" && eval "$conf"
 if [ "x$PASSWORD" = "x" ] ; then
   echo "Misconfigured password!" ; exit 1
 fi
@@ -381,7 +410,8 @@ if [ "$hash" = "$untrusted_hash" ] ; then
 else
   echo "Hashes don't match!" ; exit 1
 fi
-''',
+'''
+.replace('_CONF_PATH', emergency_signed_run_conf_path)),
 
 }
 
@@ -408,10 +438,18 @@ Type=Application
 Categories=System;Development;
 Keywords=system;update;updates;
 
-Exec=konsole --new-tab -e lincfg-gui
-Terminal=true
+Exec=konsole --new-tab -e gui-lincfg
 StartupNotify=false
 '''.lstrip(),
+
+'/usr/share/applications/turn-off-screen.desktop': '''
+[Desktop Entry]
+Exec=kscreen-doctor --dpms off
+Name=Turn Off Screen
+NoDisplay=true
+StartupNotify=false
+Type=Application
+'''
 
 }
 
@@ -425,7 +463,7 @@ def make_and_update_resources():
 
 @functools.cache
 def get_bashrc_skel():
-  d = None if is_arch_linux() else ''
+  d = None if is_arch_linux() else fallback_bashrc_skel
   _, bashrc_skel = read_config(bashrc_skel_path, default_contents = d)
   return bashrc_skel
 
@@ -494,6 +532,12 @@ printf Ollama Fav 2 > /proc/$$/comm
 ollama run gemma3:27b
 ''',
 
+# 'ou7': '''
+# #!/bin/sh
+# printf Ollama Fav 3 > /proc/$$/comm
+# ollama run llama2-uncensored:70b
+# ''',
+
 'os': '''
 #!/bin/sh
 printf Ollama Serve > /proc/$$/comm
@@ -512,6 +556,7 @@ mkdir -p ~/Downloads/Unscanned/Podcasts
 ''',
 
 'bwshell_onedrive': f'''
+#!/bin/sh
 echo BWS:OneDrive > /proc/$$/comm
 mkdir -p ~/Downloads/Unscanned/bwshell_onedrive
 {common_bwrap_command}
@@ -525,6 +570,7 @@ mkdir -p ~/Downloads/Unscanned/bwshell_onedrive
 ''',
 
 'bwshell_gdrive': f'''
+#!/bin/sh
 echo BWS:GDrive > /proc/$$/comm
 mkdir -p ~/Downloads/Unscanned/bwshell_gdrive
 {common_bwrap_command}
@@ -626,15 +672,15 @@ def ensure_shell_shims_exist():
       write_config(p, desired_shim_code, user = desired_username)
       os.chmod(p, OWNER_CAN_RWX)
 
-desired_root_bashrc_suffix = """
+desired_root_bashrc_suffix = f"""
 export LESS=-i
 export PATH=$PATH:$HOME/.local/bin
 
 bind -s 'set completion-ignore-case on'
 
 alias wboot="boot_windows"
-alias bclean="HOME=/home/Liz prbsync clean"
-alias bt_dualboot="python -m bt_dualboot"
+alias bclean="HOME=/home/{desired_username} prbsync clean"
+alias bt_dualboot="python -Bm bt_dualboot"
 """
 
 def get_desired_root_bashrc():
@@ -648,6 +694,8 @@ def ensure_root_bashrc_is_correct():
   p, root_bashrc = read_config('~root/.bashrc', default_contents = d)
   if root_bashrc != get_desired_root_bashrc():
     write_config(p, get_desired_root_bashrc())
+
+auto_tpm_encrypt_path = '/root/.local/bin/auto_tpm_encrypt'
 
 sudo_drop_in = f'''
 Defaults env_keep += "IGNORE_IF_ON_BATTERY"
@@ -666,15 +714,15 @@ Defaults env_keep += "IGNORE_IF_ON_BATTERY"
 %wheel ALL=(root) NOPASSWD: /usr/bin/ptaskrunner --reset
 %wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/boot_windows
 %wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/boot_windows --nosync
-%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/lincfg
-%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/lincfg -o
+ALL ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/lincfg
+ALL ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/lincfg -o
 %wheel ALL=(root) NOPASSWD: /root/.local/bin/maxfan
 %wheel ALL=(root) NOPASSWD: /usr/bin/bash -i -c bclean
-%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/auto_tpm_encrypt --ensure_no_os_are_unsealed
-%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/auto_tpm_encrypt --ensure_booted_os_is_sealed
+%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I {auto_tpm_encrypt_path} --ensure_no_os_are_unsealed
+%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -I {auto_tpm_encrypt_path} --ensure_booted_os_is_sealed
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/persistent_tmux {desired_username}
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/systemd-run -- /usr/bin/alt_os_util switch_gpu_inner {desired_username}
-%wheel ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
+ALL ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
 
 
 # %wheel ALL=(root) NOPASSWD: /root/.local/bin/krdp-helper Alice
@@ -694,6 +742,21 @@ def ensure_sudo_is_configured_correctly():
     p, f = read_config('/etc/sudoers.d/sudo_drop_in', default_contents = '')
     if f != sudo_drop_in:
       write_config(p, sudo_drop_in)
+
+doas_drop_in_path = '/etc/doas.d/99-lincfg.conf'
+
+doas_drop_in = r'''
+
+permit nopass :users as root cmd /usr/bin/emergency-signed-run args
+'''.lstrip()
+
+@tasks.append
+def ensure_doas_is_configured_correctly():
+  if not which('doas'):
+    return
+  p, f = read_config(doas_drop_in_path, default_contents = '')
+  if f != doas_drop_in:
+    write_config(p, doas_drop_in)
 
 common_desired_plasma_vars = '''
 export ASPELL_CONF="home-dir $HOME/GDrive/Projects/Linux/config"
@@ -718,13 +781,60 @@ def ensure_plasma_vars_are_set_correctly():
   if plasma_vars != desired_plasma_vars:
     write_config(p, desired_plasma_vars, user = desired_username)
 
+local_cloud_drive_path = f'~{desired_username}/GDrive'
+cloud_drive_name = 'gdrive'
+cloud_drive_type = 'drive'
+
+OWNER_CAN_RWX = 0o700
+OWNER_CAN_RW  = 0o600
+ANYONE_CAN_R  = 0o644
+ANYONE_CAN_RX = 0o755
+
+lincfg_src_relpath = 'GDrive/Projects/Linux/lincfg.py'
+
+lincfg_project = {
+  'sources': [f'~{desired_username}/{lincfg_src_relpath}'],
+  'mode': OWNER_CAN_RWX,
+}
+
+lincfg_src_dir = os.path.dirname(lincfg_project['sources'][0])
+theme_path = os.path.join(lincfg_src_dir, 'LizCustom')
+launcher_icon_src_path = os.path.join(lincfg_src_dir, 'Invader.svg')
+wallpaper_src_path = os.path.join(
+  local_cloud_drive_path,
+  'Pictures/Wallpaper/Do a Barrel Roll by Orioto.jpg',
+)
+
+kdeglobals_path = f'~{desired_username}/.config/kdeglobals'
+
 rc_values_to_ensure = {
+  kdeglobals_path: (
+    ('[General]', 'ColorScheme', 'LizCustom'),
+    ('[KFileDialog Settings]', 'Show hidden files', 'true'),
+  ),
+
   f'~{desired_username}/.config/kwinrc': (
     ('[Plugins]', 'magiclampEnabled', 'true'),
+    ('[Plugins]', 'blurEnabled', 'true'),
+    ('[Effect-blur]', 'BlurStrength', '2'),
+    ('[Effect-blur]', 'NoiseStrength', '2'),
+    ('[TabBox]', 'LayoutName', 'coverswitch'),
+    ('[Effect-zoom]', 'MouseTracking', '1'), # center magnifier
+  ),
+
+  f'~{desired_username}/.config/kglobalshortcutsrc': (
+    ('[kwin]', 'Window Operations Menu', 'Alt+Space,Alt+F3,Window Menu'),
+    ('[services][turn-off-screen.desktop]', '_launch', 'Meta+F2'),
+  ),
+
+  f'~{desired_username}/.config/plasmanotifyrc': (
+    ('[Applications][@other]', 'ShowInHistory', 'true'),
   ),
 
   f'~{desired_username}/.config/konsolerc': (
     ('[Desktop Entry]', 'DefaultProfile', 'Default.profile'),
+    ('[KonsoleWindow]', 'UseSingleInstance', 'true'),
+    ('[MainWindow]', 'MenuBar', 'Enabled'),
   ),
 
   f'~{desired_username}/.config/katerc': (
@@ -734,6 +844,14 @@ rc_values_to_ensure = {
     ('[KTextEditor View]', 'Show Line Count', 'true'),
     ('[KTextEditor View]', 'Statusbar Line Column Compact Mode', 'false'),
     ('[KTextEditor Document]', 'Remove Spaces', '0'),
+
+    # spaces instead of tabs
+    ('[KTextEditor Document]', 'ReplaceTabsDyn', 'false'),
+    ('[KTextEditor Document]', 'Indentation Width', '2'),
+
+    ('[KTextEditor Document]', 'Line Length Limit', '10000000'),
+    ('[KTextEditor Document]', 'On-The-Fly Spellcheck', 'true'),
+    ('[lspclient]', 'Messages', 'false'),
   ),
 
   f'~{desired_username}/.config/dolphinrc': (
@@ -753,25 +871,160 @@ def ensure_rc_values_set():
     ensure_rc_values(path, values, user = desired_username)
 
 plasma_applet_src_path = f'~{desired_username}/.config/plasma-org.kde.plasma.desktop-appletsrc'
-clock_rc_values = {
-  'dateFormat': 'custom',
-  'customDateFormat': 'yyyy/MM/dd',
-  'selectedTimeZones': 'America/Los_Angeles,US/Arizona,US/Eastern,Local',
-  'lastSelectedTimezone': 'Local',
+
+plasma_desktop_rc = {
+  'clock': {
+    'kv': 'plugin=org.kde.plasma.digitalclock',
+    'suffix': '[Configuration][Appearance]',
+    'values': {
+      'dateFormat': 'custom',
+      'customDateFormat': 'yyyy/MM/dd',
+      'selectedTimeZones': 'America/Los_Angeles,US/Arizona,US/Eastern,Local',
+      'lastSelectedTimezone': 'Local',
+    },
+  },
+  'launcher': {
+    'kv': 'plugin=org.kde.plasma.kickoff',
+    'suffix': '[Configuration][General]',
+    'values': {
+      'icon': 'invader',
+    },
+  },
+  'taskbar_pins': {
+    'kv': 'plugin=org.kde.plasma.icontasks',
+    'suffix': '[Configuration][General]',
+    'values': {
+      'launchers': ','.join((
+        'applications:org.mozilla.firefox.desktop',
+        'applications:org.kde.konsole.desktop',
+        'applications:org.kde.kate.desktop',
+        'applications:org.kde.dolphin.desktop',
+      ))
+    },
+  },
+  'wallpaper': {
+    'kv': 'plugin=org.kde.plasma.folder',
+    'suffix': '[Wallpaper][org.kde.image][General]',
+    'values': {
+      'Image': 'file://' + wallpaper_src_path.replace('~', '/home/'),
+    },
+  },
 }
 
 @tasks.append
-def ensure_clock_setup():
+def ensure_plasma_desktop_setup():
   p, src = read_config(plasma_applet_src_path, default_contents = '')
-  clock_section = None
-  for line in src.splitlines():
-    if line.startswith('['):
-      section = line
-    elif line == 'plugin=org.kde.plasma.digitalclock':
-      clock_section = section
-  if clock_section:
-    ensure_rc_values(p, ((clock_section + '[Configuration][Appearance]', *i)
-                         for i in clock_rc_values.items()))
+  sections = {}
+  for k,v in plasma_desktop_rc.items():
+    isection = None
+    for line in src.splitlines():
+      if line.startswith('['):
+        isection = line
+      elif line == v['kv']:
+        sections[k] = isection
+  values = []
+  for k, section in sections.items():
+    values += [(section + plasma_desktop_rc[k].get('suffix', ''), *i)
+               for i in plasma_desktop_rc[k]['values'].items()]
+  ensure_rc_values_with_cache(p, src, values, user = desired_username)
+
+touchpad_settings = {
+  'NaturalScroll': 'true',
+  'ScrollFactor': '0.3',
+  'TapToClick': 'false',
+}
+
+gamepadify_input_settings = {
+  'PointerAcceleration': '-1.000',
+  'PointerAccelerationProfile': '1',
+  'ScrollFactor': '0.1',
+}
+
+@tasks.append
+def ensure_input_configured():
+  p, rc = read_config(f'~{desired_username}/.config/kcminputrc',
+                      default_contents = '')
+  values = []
+  for line in map(str.strip, rc.splitlines()):
+    if not line.startswith('[Libinput]'):
+      continue
+    if 'touchpad' in line.lower():
+      for k,v in touchpad_settings.items():
+        values.append((line, k, v))
+    elif 'gamepadify' in line.lower():
+      for k,v in gamepadify_input_settings.items():
+        values.append((line, k, v))
+  ensure_rc_values_with_cache(p, rc, values, user = desired_username)
+
+dolphin_bookmarks_path = f'~{desired_username}/.local/share/dolphin/bookmarks.xml'
+
+dolphin_bookmarks = {
+
+
+  # 'NameHere': {
+  #   'href': 'sftp://example/path',
+  #   'icon': 'folder-remote',
+  # },
+}
+
+user_places_path = f'~{desired_username}/.local/share/user-places.xbel'
+
+user_places = {
+  'OneDrive': {
+    'href': 'file:///home/Liz/OneDrive',
+    'icon': 'folder-cloud-symbolic',
+  },
+  'GDrive': {
+    'href': 'file:///home/Liz/GDrive',
+    'icon': 'folder-cloud-symbolic',
+  },
+}
+
+bookmark_default_icon = 'favorites'
+
+bookmark_template = ' ' + '''
+ <bookmark href="_HREF">
+  <title>_TITLE</title>
+  <info>
+   <metadata owner="http://freedesktop.org">
+    <bookmark:icon name="_ICON"/>
+   </metadata>
+  </info>
+ </bookmark>
+'''.lstrip()
+
+def update_bookmark_xbel(path, desired_bookmarks):
+  p, xbel = read_config(path, default_contents = '<xbel>\n</xbel>')
+  original_xbel = xbel
+  found = {}
+  for bmark in re.findall('(?s)<bookmark .+?</bookmark.*?>', xbel):
+    b = {'href': re.search('href="(.+?)"', bmark).group(1), 'xbel': bmark}
+    if m := re.search('<bookmark:icon name="(.+?)"', bmark):
+      b['icon'] = m.group(1)
+    found[re.search('<title>(.+?)</title', bmark).group(1)] = b
+  for title, data in desired_bookmarks.items():
+    if found.get(title, {}).get('href') == data['href'] and \
+       found.get(title, {}).get('icon', bookmark_default_icon) == \
+       data.get('icon', bookmark_default_icon):
+      continue
+    new_xb = (
+      bookmark_template
+        .replace('_TITLE', title)
+        .replace('_HREF', data['href'])
+        .replace('_ICON', data.get('icon', bookmark_default_icon))
+    )
+    if xb := found.get(title, {}).get('xbel'):
+      xbel = xbel.replace(xb, new_xb.strip())
+    else:
+      idx = xbel.rindex('</xbel')
+      xbel = xbel[:idx] + new_xb + xbel[idx:]
+  if xbel != original_xbel:
+    write_config(p, xbel, user = desired_username)
+
+@tasks.append
+def update_dolphin_bookmarks_and_places():
+  update_bookmark_xbel(dolphin_bookmarks_path, dolphin_bookmarks)
+  update_bookmark_xbel(user_places_path, user_places)
 
 user_files_with_exact_contents = {}
 
@@ -889,57 +1142,8 @@ WallpaperFlipType=NoFlip
 WallpaperOpacity=1
 '''.lstrip()
 
-local_cloud_drive_path = f'~{desired_username}/GDrive'
-cloud_drive_name = 'gdrive'
-cloud_drive_type = 'drive'
-
 prbsync_install_path = '$PREFIX/usr/bin/prbsync'
 prbsync_cloud_path = '/Projects/PRBSync/prbsync.py'
-
-common_desired_executables = {
-  # prbsync_install_path: {
-  #   'src': local_cloud_drive_path + prbsync_cloud_path,
-  # },
-  # '$PREFIX/bin/hashexec': {
-  #   'src': f'~{desired_username}/GDrive/Projects/PRBSync/hashexec.py',
-  #   'user': desired_username,
-  # },
-  # f'~{desired_username}/.local/bin/perfm': {
-  #   'src': f'~{desired_username}/GDrive/Projects/PerfM/perfm',
-  #   'user': desired_username,
-  # },
-}
-
-arch_linux_desired_executables = {
-  # '~root/.local/bin/auto_tpm_encrypt': {
-  #   'src': f'~{desired_username}/GDrive/Projects/Linux/auto_tpm_encrypt.py',
-  # },
-  # '~root/.local/bin/boot_windows': {
-  #   'src': f'~{desired_username}/GDrive/Projects/Linux/boot_windows.py'
-  # },
-}
-
-@tasks.append
-def ensure_desired_executables_exist_but_do_not_update_any_that_already_exist():
-  executables = common_desired_executables
-  if is_arch_linux():
-    executables |= arch_linux_desired_executables
-  for dst, meta in executables.items():
-    install_executable_if_missing(meta['src'], dst, user = meta.get('user'))
-
-# install_executable_if_missing(
-#   f'~{desired_username}/GDrive/Projects/Linux/lincfg.py',
-#   '~root/.local/bin/lincfg')
-
-OWNER_CAN_RWX = 0o700
-OWNER_CAN_RW  = 0o600
-ANYONE_CAN_R  = 0o644
-ANYONE_CAN_RX = 0o755
-
-lincfg_project = {
-  'sources': [f'~{desired_username}/GDrive/Projects/Linux/lincfg.py'],
-  'mode': OWNER_CAN_RWX,
-}
 
 get_lincfg_bin_path = lambda: fixpath('$PREFIX/bin/lincfg' if is_termux() else '~root/.local/bin/lincfg')
 
@@ -978,7 +1182,7 @@ rmtfs_service_paths = [
 #       subprocess.check_call(('systemctl', 'daemon-reload'))
 #       subprocess.check_call(('systemctl', 'restart', 'rmtfs'))
 #       if not flags('offline') and (nm_online := which('nm-online')):
-#         print('Fixed rmtfs, waiting for a conneciton...')
+#         print('Fixed rmtfs, waiting for a connection...')
 #         subprocess.check_call((nm_online, '-t', '600'))
 #         time.sleep(30)
 
@@ -1008,14 +1212,95 @@ def ensure_user_files_with_exact_contents_are_correct():
     if current_contents != desired_contents:
       write_config(path, desired_contents, user = desired_username)
 
+lincfg_user_data_dir = f'~{desired_username}/.local/share/lincfg'
+lincfg_root_data_dir = f'~root/.local/share/lincfg'
+lincfg_secrets_path = os.path.join(lincfg_root_data_dir, 'secrets.toml')
+
+@functools.cache
+def get_secrets():
+  try:
+    with open(fixpath(lincfg_secrets_path), 'rb') as f:
+      return __import__('tomllib').load(f)
+  except OSError:
+    return {}
+
+def try_get_secret(name, default = None):
+  if (v := get_secrets().get(name.lower())) is not None:
+    return v
+  return os.environ.get(name.upper(), default)
+
+def get_private_data_path():
+  return os.path.join(fixpath(lincfg_user_data_dir), 'private.json')
+
+@functools.cache
+def get_raw_private_data():
+  try:
+    with open(get_private_data_path(), 'r') as f:
+      return f.read()
+  except OSError:
+    return ''
+
+def load_private_data():
+  try:
+    return json.loads(get_raw_private_data())
+  except json.JSONDecodeError:
+    return {}
+
+def save_private_data(data):
+  if data == load_private_data():
+    return
+  with open(get_private_data_path(), 'w') as f:
+    json.dump(data, f, sort_keys = True, indent = 2)
+  get_raw_private_data.cache_clear()
+
+network_manager_connections_root = '/etc/NetworkManager/system-connections/'
+
+extsep = getattr(os, 'extsep', '.')
+
+def get_network_manager_connection_metadata():
+  meta = {}
+  try:
+    connections = os.listdir(network_manager_connections_root)
+  except FileNotFoundError:
+    connections = ()
+  for connection in connections:
+    name = connection.rpartition(extsep)[0]
+    connection = os.path.join(network_manager_connections_root, connection)
+    _, connection = read_config(connection)
+    meta[name] = {}
+    for i in ('ssid', 'psk'):
+      try:
+        meta[name][i] = re.search(i+'=(.+)', connection).group(1)
+      except AttributeError:
+        pass
+  return meta
+
+def update_private_data():
+  data = load_private_data()
+  data['connections'] = get_network_manager_connection_metadata()
+  save_private_data(data)
+
 arch_linux_prbsync_paths_to_hydrate = {'GDrive', 'OneDrive'}
 postmarketos_prbsync_paths_to_hydrate = {'GDriveProjects', 'OneDriveProjects'}
 termux_prbsync_paths_to_hydrate = {'GDriveProjects', 'OneDriveProjects'}
 
-BUNDLE_PATHS = [
+COMMON_BUNDLE_PATHS = [
+  # theme_path,
+  launcher_icon_src_path,
+  wallpaper_src_path,
+]
+
+PROJECT_BUNDLE_PATHS = [
+  f'~{desired_username}/Documents',
+  f'~{desired_username}/.ssh/known_hosts',
+  f'~{desired_username}/.config/mclite',
+  lincfg_user_data_dir,
+] + COMMON_BUNDLE_PATHS
+
+FULL_BUNDLE_PATHS = [
   local_cloud_drive_path,
   f'~{desired_username}/OneDrive',
-]
+] + PROJECT_BUNDLE_PATHS
 
 MINIMAL_BUNDLE_EXCLUDED_PATTERNS = [
   '**.db', '**.txt', '**.csv', '**.log',
@@ -1024,15 +1309,23 @@ MINIMAL_BUNDLE_EXCLUDED_PATTERNS = [
 
 # tar xf ~/Downloads/lincfg_bundle.tar.xz lincfg_bundle/GDrive --strip-components=1
 
+bundle_root_name = 'lincfg_bundle'
+
+def try_get_bundle_root():
+  bundle_root = os.path.abspath(os.path.join(__file__, *(4*(os.path.pardir,))))
+  if os.path.basename(bundle_root) == bundle_root_name:
+    return bundle_root
+  return None
+
 @tasks.append
 def handle_bundle_related_operations():
-  bundle_root = os.path.abspath(os.path.join(__file__, '../../../..'))
-  bundle_install_script = os.path.join(bundle_root, 'install_lincfg_bundle.sh')
-  if os.path.isfile(bundle_install_script):
+  secrets = fixpath(lincfg_secrets_path)
+  if bundle_root := try_get_bundle_root():
+    bundle_install_script = os.path.join(bundle_root, 'install_lincfg_bundle.sh')
     print('Running bundle install script:', bundle_install_script)
-    subprocess.check_call((get_shell(), bundle_install_script))
-    import tomllib
-    prbsync_config = tomllib.loads(prbsync_config_data)
+    if os.path.isfile(bundle_install_script):
+      subprocess.check_call((get_shell(), bundle_install_script))
+    prbsync_config = __import__('tomllib').loads(prbsync_config_data)
     if is_arch_linux():
       paths_to_hydrate = arch_linux_prbsync_paths_to_hydrate
     elif is_postmarketos():
@@ -1056,16 +1349,23 @@ def handle_bundle_related_operations():
       else:
         os.mkdir(local_path)
       shutil.copytree(bundle_path, local_path, dirs_exist_ok = True)
+      subprocess.check_call(('chown', '-R', desired_username+':', local_path))
+    bundle_secrets = os.path.join(bundle_root, os.path.basename(secrets))
+    shutil.copy(bundle_secrets, secrets)
   if dest := os.environ.get('LINCFG_BUNDLE_DEST'):
     bundle_size = (
       os.environ.get('LINCFG_BUNDLE_SIZE', 'minimal').lower().strip()
     )
+    update_private_data()
     if bundle_size in ('max', 'full'):
       paths_to_bundle = FULL_BUNDLE_PATHS
-    elif bundle_size in ('min', 'minimal', 'projects', 'project'):
-      paths_to_bundle = []
-      exclude = [] if bundle_size.startswith('project') else \
-                MINIMAL_BUNDLE_EXCLUDED_PATTERNS
+    elif bundle_size in ('min', 'minimal', 'proj', 'projects', 'project'):
+      if bundle_size.startswith('proj'):
+        paths_to_bundle = PROJECT_BUNDLE_PATHS
+        exclude = []
+      else:
+        paths_to_bundle = COMMON_BUNDLE_PATHS
+        exclude = MINIMAL_BUNDLE_EXCLUDED_PATTERNS
       for project in all_locally_cached_projects.values():
         r = fixpath(project.get('cwd', os.path.curdir))
         for source in get_project_sources(project):
@@ -1076,9 +1376,9 @@ def handle_bundle_related_operations():
       raise ValueError('Invalid bundle size: {}'.format(repr(bundle_size)))
     pfx = fixpath(f'~{desired_username}') + os.path.sep
     st = os.stat(dest)
-    os.mkdir(bundle_root := os.path.join(dest, 'lincfg_bundle'))
+    os.mkdir(bundle_root := os.path.join(dest, bundle_root_name))
     os.chown(bundle_root, st.st_uid, st.st_gid)
-    for src in sorted(set(paths_to_bundle)):
+    for src in sorted(set(map(fixpath, paths_to_bundle))):
       if not src.startswith(pfx):
         raise RuntimeError(f'Unexpected path: {src}')
       dest = os.path.join(bundle_root, src[len(pfx):])
@@ -1088,6 +1388,8 @@ def handle_bundle_related_operations():
       except NotADirectoryError:
         shutil.copy2(src, dest)
     make_bundle_script = fixpath('~/.local/share/lincfg/make_bundle.sh')
+    bundle_secrets = os.path.join(bundle_root, os.path.basename(secrets))
+    shutil.copy2(secrets, bundle_secrets)
     subprocess.check_call((get_shell(), make_bundle_script),
                            env = dict(os.environ) | {
                              'LINCFG_BUNDLE_ROOT': bundle_root,
@@ -1097,6 +1399,7 @@ def handle_bundle_related_operations():
     subprocess.check_call(('tar', 'cJf', arc, os.path.basename(bundle_root)),
                           cwd = os.path.dirname(bundle_root))
     os.chown(arc, st.st_uid, st.st_gid)
+    shutil.rmtree(bundle_root)
 
 user_files_with_exact_contents[f'~{desired_username}/.config/perfm.toml'] = '''
 # [actions.RustDesk]
@@ -1247,7 +1550,19 @@ cwd = '~/.local/share/charonrmm'
 cmd = 'python healthcheck.py'
 '''.lstrip()
 
-user_files_with_exact_contents[f'~{desired_username}/.config/git_mirror_sync.toml'] = r'''
+git_mirror_sync_urls_template = '''
+urls = [
+  'git@github.com:ElizabethF2/_NAME.git',
+  'git@gitlab.com:ElizabethF2/_NAME.git',
+  'git@codeberg.org:ElizabethF2/_NAME.git',
+  'git@bitbucket.org:elizabethf2/_NAME.git',
+]
+'''
+
+def git_mirror_sync_urls(name):
+  return git_mirror_sync_urls_template.replace('_NAME', name).strip()
+
+user_files_with_exact_contents[f'~{desired_username}/.config/git_mirror_sync.toml'] = fr'''
 # state_path = ''
 # log_path = ''
 # cache_dir = ''
@@ -1269,10 +1584,7 @@ kept_paths = ['LICENSE']
 source = '~/GDrive/Projects/Gamepadify'
 excluded_paths = ['old']
 destination = '~/.local/share/git_mirrors/Gamepadify'
-urls = ['git@github.com:ElizabethF2/Gamepadify.git',
-        'git@gitlab.com:ElizabethF2/Gamepadify.git',
-        'git@codeberg.org:ElizabethF2/Gamepadify.git',
-        'git@bitbucket.org:elizabethf2/gamepadify.git', ]
+{git_mirror_sync_urls('Gamepadify')}
 
 [repos.Gamepadify.renames]
 mygamepad = 'examples/comprehensive_config.py'
@@ -1281,43 +1593,28 @@ mygamepad = 'examples/comprehensive_config.py'
 source = '~/GDrive/Projects/MissionControlLite'
 excluded_paths = ['MissionControlLite.service']
 destination = '~/.local/share/git_mirrors/MissionControlLite'
-urls = ['git@github.com:ElizabethF2/MissionControlLite.git',
-        'git@gitlab.com:ElizabethF2/MissionControlLite.git',
-        'git@codeberg.org:ElizabethF2/MissionControlLite.git',
-        'git@bitbucket.org:ElizabethF2/MissionControlLite.git', ]
+{git_mirror_sync_urls('MissionControlLite')}
 
 [repos.PRBSync]
 source = '~/GDrive/Projects/PRBSync'
 destination = '~/.local/share/git_mirrors/PRBSync'
-urls = ['git@github.com:ElizabethF2/PRBSync.git',
-        'git@gitlab.com:ElizabethF2/PRBSync.git',
-        'git@codeberg.org:ElizabethF2/PRBSync.git',
-        'git@bitbucket.org:ElizabethF2/PRBSync.git', ]
+{git_mirror_sync_urls('PRBSync')}
 
 [repos.Virtuator]
 source = '~/GDrive/Projects/Virtuator'
 destination = '~/.local/share/git_mirrors/Virtuator'
-urls = ['git@github.com:ElizabethF2/Virtuator.git',
-        'git@gitlab.com:ElizabethF2/Virtuator.git',
-        'git@codeberg.org:ElizabethF2/Virtuator.git',
-        'git@bitbucket.org:ElizabethF2/Virtuator.git', ]
+{git_mirror_sync_urls('Virtuator')}
 
 [repos.Queark]
 source = '~/GDrive/Projects/Queark'
 destination = '~/.local/share/git_mirrors/Queark'
-urls = ['git@github.com:ElizabethF2/Queark.git',
-        'git@gitlab.com:ElizabethF2/Queark.git',
-        'git@codeberg.org:ElizabethF2/Queark.git',
-        'git@bitbucket.org:ElizabethF2/Queark.git', ]
+{git_mirror_sync_urls('Queark')}
 
 [repos.Lockdown]
 source = '~/GDrive/Projects/Lockdown'
 excluded_paths = ['**old', '**.txt']
 destination = '~/.local/share/git_mirrors/OS-Lockdown'
-urls = ['git@github.com:ElizabethF2/OS-Lockdown.git',
-        'git@gitlab.com:ElizabethF2/OS-Lockdown.git',
-        'git@codeberg.org:ElizabethF2/OS-Lockdown.git',
-        'git@bitbucket.org:ElizabethF2/OS-Lockdown.git', ]
+{git_mirror_sync_urls('OS-Lockdown')}
 
 [repos.Sessen]
 source = '~/OneDrive/Projects/Sessen'
@@ -1327,100 +1624,67 @@ excluded_paths = ['**.pem', '**.txt', '**.json', '**.db', '**.log', '**.pyc', '*
                   'Disabled Extensions', 'dev/old/test.py', 'dev/old/winpipe.py',
                   'sandboxpy', '**r1*', '**r2*', '**v1*', '**v2*']
 destination = '~/.local/share/git_mirrors/Sessen'
-urls = ['git@github.com:ElizabethF2/Sessen.git',
-        'git@gitlab.com:ElizabethF2/Sessen.git',
-        'git@codeberg.org:ElizabethF2/Sessen.git',
-        'git@bitbucket.org:ElizabethF2/Sessen.git', ]
+{git_mirror_sync_urls('Sessen')}
 
 [repos.SandboxPy]
 source = '~/OneDrive/Projects/Sessen/sandboxpy'
 excluded_paths = ['**__pycache__']
 destination = '~/.local/share/git_mirrors/SandboxPy'
-urls = ['git@github.com:ElizabethF2/SandboxPy.git',
-        'git@gitlab.com:ElizabethF2/SandboxPy.git',
-        'git@codeberg.org:ElizabethF2/SandboxPy.git',
-        'git@bitbucket.org:ElizabethF2/SandboxPy.git', ]
+{git_mirror_sync_urls('SandboxPy')}
 
 [repos.Readyr]
 source = '~/OneDrive/Projects/Sessen/Extensions/Readyr'
 
 destination = '~/.local/share/git_mirrors/Readyr'
-urls = ['git@github.com:ElizabethF2/Readyr.git',
-        'git@gitlab.com:ElizabethF2/Readyr.git',
-        'git@codeberg.org:ElizabethF2/Readyr.git',
-        'git@bitbucket.org:ElizabethF2/Readyr.git', ]
+{git_mirror_sync_urls('Readyr')}
 
 [repos.MissionControl]
 source = '~/OneDrive/Projects/Sessen/Extensions/MissionControl'
 excluded_paths = ['__pycache__', '*.json', 'client_config.js']
 destination = '~/.local/share/git_mirrors/MissionControl'
-urls = ['git@github.com:ElizabethF2/MissionControl.git',
-        'git@gitlab.com:ElizabethF2/MissionControl.git',
-        'git@codeberg.org:ElizabethF2/MissionControl.git',
-        'git@bitbucket.org:ElizabethF2/MissionControl.git', ]
+{git_mirror_sync_urls('MissionControl')}
 
 [repos.CharonRMM]
 source = '~/GDrive/Projects/CharonRMM'
 excluded_paths = ['**.pem', '**.toml', '**scratch*', 'fix_rustdesk_key.py',
                   'wincfg.py']
 destination = '~/.local/share/git_mirrors/CharonRMM'
-urls = ['git@github.com:ElizabethF2/CharonRMM.git',
-        'git@gitlab.com:ElizabethF2/CharonRMM.git',
-        'git@codeberg.org:ElizabethF2/CharonRMM.git',
-        'git@bitbucket.org:ElizabethF2/CharonRMM.git', ]
+{git_mirror_sync_urls('CharonRMM')}
 
 [repos.MinecraftGravity]
 source = '~/OneDrive/Projects/Mods/Minecraft/GravityJS'
 excluded_paths = ['**-r1*', '*.mcpack']
 destination = '~/.local/share/git_mirrors/MinecraftGravity'
-urls = ['git@github.com:ElizabethF2/MinecraftGravity.git',
-        'git@gitlab.com:ElizabethF2/MinecraftGravity.git',
-        'git@codeberg.org:ElizabethF2/MinecraftGravity.git',
-        'git@bitbucket.org:ElizabethF2/MinecraftGravity.git', ]
+{git_mirror_sync_urls('MinecraftGravity')}
 
 [repos.PettyJSOS]
 source = '~/OneDrive/Projects/PettyJSOS'
 excluded_paths = ['**v1*']
 destination = '~/.local/share/git_mirrors/PettyJSOS'
-urls = ['git@github.com:ElizabethF2/PettyJSOS.git',
-        'git@gitlab.com:ElizabethF2/PettyJSOS.git',
-        'git@codeberg.org:ElizabethF2/PettyJSOS.git',
-        'git@bitbucket.org:ElizabethF2/PettyJSOS.git', ]
+{git_mirror_sync_urls('PettyJSOS')}
 
 [repos.pTaskRunner]
 source = '~/GDrive/Projects/PerfM'
 destination = '~/.local/share/git_mirrors/pTaskRunner'
-urls = ['git@github.com:ElizabethF2/pTaskRunner.git',
-        'git@gitlab.com:ElizabethF2/pTaskRunner.git',
-        'git@codeberg.org:ElizabethF2/pTaskRunner.git',
-        'git@bitbucket.org:ElizabethF2/pTaskRunner.git', ]
+{git_mirror_sync_urls('pTaskRunner')}
 
 [repos.NPP_on_Kate]
 source = '~/OneDrive/Projects/NPP on Kate'
 excluded_paths = ['**r1*', '*.txt']
 destination = '~/.local/share/git_mirrors/NPP_on_Kate'
-urls = ['git@github.com:ElizabethF2/NPP-on-Kate.git',
-        'git@gitlab.com:ElizabethF2/NPP-on-Kate.git',
-        'git@codeberg.org:ElizabethF2/NPP-on-Kate.git',
-        'git@bitbucket.org:ElizabethF2/NPP-on-Kate.git', ]
+{git_mirror_sync_urls('NPP-on-Kate')}
 
 [repos.GiantCursor]
 source = '~/OneDrive/Projects/GiantCursor'
 excluded_paths = ['**.txt', '**.exe', '**.cur', 'bin', 'old']
 destination = '~/.local/share/git_mirrors/GiantCursor'
-urls = ['git@github.com:ElizabethF2/GiantCursor.git',
-        'git@gitlab.com:ElizabethF2/GiantCursor.git',
-        'git@codeberg.org:ElizabethF2/GiantCursor.git',
-        'git@bitbucket.org:ElizabethF2/GiantCursor.git', ]
+{git_mirror_sync_urls('GiantCursor')}
 
 [repos.ReflectiveNAS]
 source = '~/OneDrive/Projects/ReflectiveNAS'
 
 destination = '~/.local/share/git_mirrors/ReflectiveNAS'
-urls = ['git@github.com:ElizabethF2/ReflectiveNAS.git',
-        'git@gitlab.com:ElizabethF2/ReflectiveNAS.git',
-        'git@codeberg.org:ElizabethF2/ReflectiveNAS.git',
-        'git@bitbucket.org:ElizabethF2/ReflectiveNAS.git', ]
+{git_mirror_sync_urls('ReflectiveNAS')}
 
 [repos.EncryptedNasBase]
 source = '~/OneDrive/Projects/ReflectiveNAS/EncryptedNAS'
@@ -1438,135 +1702,87 @@ destination = '~/.local/share/git_mirrors/EncryptedNAS/README.md'
 
 [repos.EncryptedNAS]
 destination = '~/.local/share/git_mirrors/EncryptedNAS'
-urls = ['git@github.com:ElizabethF2/EncryptedNAS.git',
-        'git@gitlab.com:ElizabethF2/EncryptedNAS.git',
-        'git@codeberg.org:ElizabethF2/EncryptedNAS.git',
-        'git@bitbucket.org:ElizabethF2/EncryptedNAS.git', ]
+{git_mirror_sync_urls('EncryptedNAS')}
 
 [repos.RedundantNAS]
 source = '~/OneDrive/Projects/RedundantNAS'
 
 destination = '~/.local/share/git_mirrors/RedundantNAS'
-urls = ['git@github.com:ElizabethF2/RedundantNAS.git',
-        'git@gitlab.com:ElizabethF2/RedundantNAS.git',
-        'git@codeberg.org:ElizabethF2/RedundantNAS.git',
-        'git@bitbucket.org:ElizabethF2/RedundantNAS.git', ]
+{git_mirror_sync_urls('RedundantNAS')}
 
 [repos.StorageMinder]
 source = '~/OneDrive/Projects/StorageMinder'
 destination = '~/.local/share/git_mirrors/StorageMinder'
-urls = ['git@github.com:ElizabethF2/StorageMinder.git',
-        'git@gitlab.com:ElizabethF2/StorageMinder.git',
-        'git@codeberg.org:ElizabethF2/StorageMinder.git',
-        'git@bitbucket.org:ElizabethF2/StorageMinder.git', ]
+{git_mirror_sync_urls('StorageMinder')}
 
 [repos.KnickKnack]
 source = '~/OneDrive/Projects/KnickKnack'
 excluded_paths = ['**.txt', '**.exe', '**.nds', '**.elf', 'nds/build']
 destination = '~/.local/share/git_mirrors/KnickKnack'
-urls = ['git@github.com:ElizabethF2/KnickKnack.git',
-        'git@gitlab.com:ElizabethF2/KnickKnack.git',
-        'git@codeberg.org:ElizabethF2/KnickKnack.git',
-        'git@bitbucket.org:ElizabethF2/KnickKnack.git', ]
+{git_mirror_sync_urls('KnickKnack')}
 
 [repos.MarionetteAPI]
 source = '~/OneDrive/Projects/marionette'
 excluded_paths = ['__pycache__']
 destination = '~/.local/share/git_mirrors/marionette_api'
-urls = ['git@github.com:ElizabethF2/marionette_wrapper.git',
-        'git@gitlab.com:ElizabethF2/marionette_wrapper.git',
-        'git@codeberg.org:ElizabethF2/marionette_wrapper.git',
-        'git@bitbucket.org:ElizabethF2/marionette_wrapper.git', ]
+{git_mirror_sync_urls('marionette_wrapper')}
 
 [repos.ResultsLogger]
 source = '~/OneDrive/Projects/ResultsLogger'
 excluded_paths = ['__pycache__', 'Logs', 'PublicLogs']
 destination = '~/.local/share/git_mirrors/ResultsLogger'
-urls = ['git@github.com:ElizabethF2/ResultsLogger.git',
-        'git@gitlab.com:ElizabethF2/ResultsLogger.git',
-        'git@codeberg.org:ElizabethF2/ResultsLogger.git',
-        'git@bitbucket.org:ElizabethF2/ResultsLogger.git', ]
+{git_mirror_sync_urls('ResultsLogger')}
 
 [repos.PowerNotifier]
 source = '~/OneDrive/Projects/PowerNotifier'
 excluded_paths = ['bin']
 destination = '~/.local/share/git_mirrors/PowerNotifier'
-urls = ['git@github.com:ElizabethF2/PowerNotifier.git',
-        'git@gitlab.com:ElizabethF2/PowerNotifier.git',
-        'git@codeberg.org:ElizabethF2/PowerNotifier.git',
-        'git@bitbucket.org:ElizabethF2/PowerNotifier.git', ]
+{git_mirror_sync_urls('PowerNotifier')}
 
 [repos.MelodAIc]
 source = '~/GDrive/Projects/Legacy/MelodAIc'
 destination = '~/.local/share/git_mirrors/MelodAIc'
-urls = ['git@github.com:ElizabethF2/MelodAIc.git',
-        'git@gitlab.com:ElizabethF2/MelodAIc.git',
-        'git@codeberg.org:ElizabethF2/MelodAIc.git',
-        'git@bitbucket.org:ElizabethF2/MelodAIc.git', ]
+{git_mirror_sync_urls('MelodAIc')}
 
 [repos.BattlefrontShader]
 source = '~/GDrive/Projects/Legacy/BattlefrontShader'
 destination = '~/.local/share/git_mirrors/BattlefrontShader'
-urls = ['git@github.com:ElizabethF2/BattlefrontShader.git',
-        'git@gitlab.com:ElizabethF2/BattlefrontShader.git',
-        'git@codeberg.org:ElizabethF2/BattlefrontShader.git',
-        'git@bitbucket.org:ElizabethF2/BattlefrontShader.git', ]
+{git_mirror_sync_urls('BattlefrontShader')}
 
 [repos.PotatoVideo]
 source = '~/GDrive/Projects/Legacy/PotatoVideo'
 destination = '~/.local/share/git_mirrors/PotatoVideo'
-urls = ['git@github.com:ElizabethF2/PotatoVideo.git',
-        'git@gitlab.com:ElizabethF2/PotatoVideo.git',
-        'git@codeberg.org:ElizabethF2/PotatoVideo.git',
-        'git@bitbucket.org:ElizabethF2/PotatoVideo.git', ]
+{git_mirror_sync_urls('PotatoVideo')}
 
 [repos.Game3DSjs]
 source = '~/GDrive/Projects/Legacy/Game3DSjs'
 destination = '~/.local/share/git_mirrors/Game3DSjs'
-urls = ['git@github.com:ElizabethF2/Game3DSjs.git',
-        'git@gitlab.com:ElizabethF2/Game3DSjs.git',
-        'git@codeberg.org:ElizabethF2/Game3DSjs.git',
-        'git@bitbucket.org:ElizabethF2/Game3DSjs.git', ]
+{git_mirror_sync_urls('Game3DSjs')}
 
 [repos.XboxRemotePlay]
 source = '~/GDrive/Projects/Legacy/XboxRemotePlay'
 destination = '~/.local/share/git_mirrors/XboxRemotePlay'
-urls = ['git@github.com:ElizabethF2/XboxRemotePlay.git',
-        'git@gitlab.com:ElizabethF2/XboxRemotePlay.git',
-        'git@codeberg.org:ElizabethF2/XboxRemotePlay.git',
-        'git@bitbucket.org:ElizabethF2/XboxRemotePlay.git', ]
+{git_mirror_sync_urls('XboxRemotePlay')}
 
 [repos.GTA_V_Mods]
 source = '~/GDrive/Projects/Legacy/GTA_V_Mods'
 destination = '~/.local/share/git_mirrors/GTA_V_Mods'
-urls = ['git@github.com:ElizabethF2/GTA-V-Mods.git',
-        'git@gitlab.com:ElizabethF2/GTA-V-Mods.git',
-        'git@codeberg.org:ElizabethF2/GTA-V-Mods.git',
-        'git@bitbucket.org:ElizabethF2/GTA-V-Mods.git', ]
+{git_mirror_sync_urls('GTA-V-Mods')}
 
 [repos.Lattyce]
 source = '~/GDrive/Projects/Legacy/Lattyce'
 destination = '~/.local/share/git_mirrors/Lattyce'
-urls = ['git@github.com:ElizabethF2/Lattyce.git',
-        'git@gitlab.com:ElizabethF2/Lattyce.git',
-        'git@codeberg.org:ElizabethF2/Lattyce.git',
-        'git@bitbucket.org:ElizabethF2/Lattyce.git', ]
+{git_mirror_sync_urls('Lattyce')}
 
 [repos.LeapMotionScripts]
 source = '~/GDrive/Projects/Legacy/LeapMotionScripts'
 destination = '~/.local/share/git_mirrors/LeapMotionScripts'
-urls = ['git@github.com:ElizabethF2/Leap-Motion-Scripts.git',
-        'git@gitlab.com:ElizabethF2/Leap-Motion-Scripts.git',
-        'git@codeberg.org:ElizabethF2/Leap-Motion-Scripts.git',
-        'git@bitbucket.org:ElizabethF2/Leap-Motion-Scripts.git', ]
+{git_mirror_sync_urls('Leap-Motion-Scripts')}
 
 [repos.MarkovChainScripts]
 source = '~/GDrive/Projects/Legacy/MarkovChainScripts'
 destination = '~/.local/share/git_mirrors/MarkovChainScripts'
-urls = ['git@github.com:ElizabethF2/Markov-Chain-Scripts.git',
-        'git@gitlab.com:ElizabethF2/Markov-Chain-Scripts.git',
-        'git@codeberg.org:ElizabethF2/Markov-Chain-Scripts.git',
-        'git@bitbucket.org:ElizabethF2/Markov-Chain-Scripts.git', ]
+{git_mirror_sync_urls('Markov-Chain-Scripts')}
 
 [repos.RNG]
 source = '~/GDrive/Projects/rng.py'
@@ -1600,10 +1816,7 @@ excluded_paths = ['config', '*.yml', '*.tar.gz', 'mount_encrypted_drives.sh',
 kept_paths = ['rng.py', 'podcast_downloader.py', 'url_bulk_opener.htm',
               'TransparentGApps.py', 'Alarm Clock.htm', 'SaveSync', ]
 destination = '~/.local/share/git_mirrors/Miscellaneous'
-urls = ['git@github.com:ElizabethF2/Miscellaneous.git',
-        'git@gitlab.com:ElizabethF2/Miscellaneous.git',
-        'git@codeberg.org:ElizabethF2/Miscellaneous.git',
-        'git@bitbucket.org:ElizabethF2/Miscellaneous.git', ]
+{git_mirror_sync_urls('Miscellaneous')}
 
 [repos.Miscellaneous.renames]
 'miscellaneous.md' = 'README.md'
@@ -1857,8 +2070,6 @@ def add_plugins_to_konsole_ui():
 # ]
 # '''.lstrip()
 
-# TODO startup sync
-
 ptaskrunner_router_path = (
   f'/home/{desired_username}/.local/share/ptaskrunner/task_router.py'
 )
@@ -2068,7 +2279,7 @@ gtk-icon-theme-name="breeze-dark"
 gtk-font-name="Noto Sans,  10"
 ''',
 
-f'~{desired_username}/.config/kdeglobals': '''
+kdeglobals_path: '''
 [KDE]
 LookAndFeelPackage=org.kde.breezedark.desktop
 
@@ -2281,6 +2492,30 @@ def fix_keyd_config():
   subprocess.check_call(('systemctl', 'enable', 'keyd', '--now'))
 
 @tasks.append
+def handle_python_version_updates():
+  if os.path.isfile(os.__file__):
+    return
+  new_site_packages = subprocess.check_output((
+    sys.executable, '-c', 'import site;print(site.getsitepackages()[0])',
+  )).decode().strip()
+  if new_site_packages == SYSTEM_SITE_PACKAGES:
+    raise RuntimeError()
+  for url in desired_python_packages.keys():
+    dirname = url.rpartition('/')[2].rpartition('-')[0].replace('-','_')
+    try:
+      os.rename(
+        os.path.join(SYSTEM_SITE_PACKAGES, dirname),
+        os.path.join(new_site_packages, dirname),
+      )
+    except FileNotFoundError:
+      pass
+  os.rmdir(SYSTEM_SITE_PACKAGES)
+  pydir = os.path.dirname(SYSTEM_SITE_PACKAGES)
+  if 'python' not in pydir or '.' not in pydir:
+    return
+  os.rmdir(pydir)
+
+@tasks.append
 def ensure_python_packages_updated():
   if not flags('offline'):
     for url, pkg_hash in desired_python_packages.items():
@@ -2329,8 +2564,7 @@ def set_firefox_policies_in_container():
   if policies:
     return
   policies = {}
-  unlisted_notes_url = os.environ.get('UNLISTED_NOTES_URL')
-  if unlisted_notes_url:
+  if unlisted_notes_url := try_get_secret('unlisted_notes_url'):
     policies['Bookmarks'] = [{'Title':'Unlisted Notes', 'URL':unlisted_notes_url}]
   policies['DisableTelemetry'] = True
   policies['ExtensionSettings'] = {
@@ -2674,7 +2908,6 @@ cd ~/rustdesk-*
   --dart-output flutter/lib/generated_bridge.dart \
   --c-output flutter/macos/Runner/bridge_generated.h
 
-# TODO swapon before this script
 cd ~/rustdesk-*
 cargo build --frozen --release --lib --features flutter,hwcodec
 cargo build --frozen --release --bin rustdesk --features flutter,hwcodec
@@ -2784,6 +3017,20 @@ def ensure_maldet_installed_and_up_to_date():
   subprocess.run(get_shell(),
                  input = MALDET_SETUP_SCRIPT.encode(),
                  check = True)
+
+maldet_functions_path = '/usr/share/maldet/internals/functions'
+original_maldext_size_limit_code = \
+  "scan_max_filesize=`cat $sig_md5_file | cut -d':' -f2 | sort -n | tail -n1`"
+patched_maldet_size_limit_code = 'scan_max_filesize=99999999999999999'
+
+@tasks.append
+def patch_maldet():
+  p, code = read_config(maldet_functions_path, default_contents = '')
+  if original_maldext_size_limit_code not in code:
+    return
+  code = code.replace(original_maldext_size_limit_code,
+                      patched_maldet_size_limit_code)
+  write_config(p, code)
 
 @tasks.append
 def ensure_passwords_are_setup():
@@ -3171,7 +3418,7 @@ common_personal_locally_cached_projects = {
     'sources': [
       f'~{desired_username}/GDrive/Projects/MissionControlLite/client.py'
     ],
-    'destination': f'~{desired_username}/.local/bin/missioncontrollite-client',
+    'destination': f'~{desired_username}/.local/bin/missioncontrollite',
     'user': desired_username,
     'mode': OWNER_CAN_RWX,
   },
@@ -3184,6 +3431,12 @@ common_personal_locally_cached_projects = {
     'mode': OWNER_CAN_RWX,
   }
 }
+
+custom_colors_name = 'LizCustom.colors'
+custom_colors_destination = os.path.join(
+  f'~{desired_username}/.local/share/color-schemes',
+  custom_colors_name,
+)
 
 desktop_locally_cached_projects = {
   'prbsync_kate_hook': {
@@ -3227,6 +3480,12 @@ desktop_locally_cached_projects = {
     ],
     'destination': '/srv/mclite/repair',
     'mode': OWNER_CAN_RWX,
+  },
+  'color_scheme': {
+    'sources': [os.path.join(lincfg_src_dir, custom_colors_name)],
+    'destination': custom_colors_destination,
+    'mode': OWNER_CAN_RW,
+    'user': desired_username,
   },
   # 'prbsync_gui': {
   #   'sources': [f'~{desired_username}/GDrive/Projects/Linux/prbsync_gui'],
@@ -3350,7 +3609,7 @@ personal_desktop_locally_cached_projects = {
 arch_linux_locally_cached_projects = {
   'auto_tpm_encrypt': {
     'sources': [f'~{desired_username}/GDrive/Projects/Lockdown/AutoTpmEncrypt/auto_tpm_encrypt.py'],
-    'destination': '~root/.local/bin/auto_tpm_encrypt',
+    'destination': auto_tpm_encrypt_path,
     'mode': OWNER_CAN_RWX,
   },
   'boot_windows': {
@@ -3470,6 +3729,49 @@ def cache_projects_via_diffcp():
     kwargs = project.copy()
     destination = kwargs.pop('destination')
     diffcp_copy(project_name, destination, **kwargs)
+
+drm_root = '/sys/class/drm'
+radeon_rx_7900m_id = '1002:744c'
+
+secure_boot_key_path = '/etc/secureboot/db.key'
+secure_boot_cert_path = '/etc/secureboot/db.crt'
+
+@tasks.append
+def generate_auto_tpm_encrypt_config():
+  if not which('auto_tpm_encrypt'):
+    return
+  _, cpuinfo = read_config('/proc/cpuinfo', default_contents = '')
+  is_amd = 'AuthenticAMD' in cpuinfo
+  is_intel = 'GenuineIntel' in cpuinfo
+  kargs = ['loglevel=3', 'quiet']
+  if is_amd:
+    kargs.append('amd_iommu=force_isolation')
+  if is_intel:
+    kargs.append('intel_iommu=on')
+  if is_amd or is_intel:
+    kargs += ['iommu=force', 'iommu.strict=1']
+    kargs += ['iommu.passthrough=0', 'efi=disable_early_pci_dma']
+  cards = set()
+  for i in os.listdir(drm_root):
+    if not i.startswith('card') or not i[4:].isdigit():
+      continue
+    _, vendor = read_config(os.path.join(drm_root, i, 'device', 'vendor'))
+    _, device = read_config(os.path.join(drm_root, i, 'device', 'device'))
+    cards.add(vendor[2:].strip()+':'+device[2:].strip())
+  if radeon_rx_7900m_id in cards:
+    kargs += ['amdgpu.dcdebugmask=0x10', 'amdgpu.bapm=0']
+  cfg = [f"kernel_parameters = '{' '.join(kargs)}'"]
+  if os.path.isfile(secure_boot_key_path):
+    cfg.append(f"secure_boot_key = '{secure_boot_key_path}'")
+  if os.path.isfile(secure_boot_cert_path):
+    cfg.append(f"secure_boot_cert = '{secure_boot_cert_path}'")
+  if is_parent_pc():
+    cfg.append('rd_luks_try_empty_password = true')
+  desired = ''.join((f'{i}\n' for i in cfg))
+  p, actual = read_config('~/.config/auto_tpm_encrypt.toml',
+                          default_contents = '')
+  if actual != desired:
+    write_config(p, desired, perms = OWNER_CAN_RW)
 
 luks_partition_mount_root = '/srv'
 
@@ -3604,6 +3906,11 @@ common_browser_permissions = {
   },
 }
 
+common_gtk_configs = {
+  'xdg-config/gtk-3.0:ro',
+  'xdg-config/gtk-4.0:ro',
+}
+
 flatpak_exceptions = {
   'com.anydesk.Anydesk': {
     'shared': {'network'},
@@ -3614,13 +3921,21 @@ flatpak_exceptions = {
   },
   'org.remmina.Remmina': {
     'shared': {'network'},
+    'filesystems': common_gtk_configs | {
+      'xdg-run/pipewire-0',
+    },
   },
   'org.mozilla.firefox': common_browser_permissions | {
     'persistent': {'.mozilla'},
     'features': {'devel'},
-    'filesystems': common_browser_permissions['filesystems'] |
-                   {'xdg-run/speech-dispatcher:ro',
-                    os.path.join(unscanned_downloads_dir, 'Firefox')},
+    'filesystems': (
+      common_browser_permissions['filesystems'] |
+      common_gtk_configs |
+      {
+        'xdg-run/speech-dispatcher:ro',
+        os.path.join(unscanned_downloads_dir, 'Firefox')
+      }
+    ),
     'session_bus_policy': common_browser_permissions['session_bus_policy'] | {
       'org.mozilla.firefox_beta.*': 'own',
       'org.mozilla.firefox.*': 'own',
@@ -3700,10 +4015,29 @@ flatpak_exceptions = {
   },
   'org.gimp.GIMP': {
     'sockets': {'x11'},
-    'filesystems': {'xdg-config/GIMP', 'xdg-config/gtk-3.0'},
+    'filesystems': common_gtk_configs | {'xdg-config/GIMP',},
     'session_bus_policy': {
       'org.freedesktop.FileManager1': 'talk',
     }
+  },
+  'com.github.PintaProject.Pinta': {},
+  'org.kde.krita': {
+    'devices': {'dri',},
+    'sockets': {'x11'},
+  },
+  'org.kde.kolourpaint': {
+    'devices': {'dri',},
+    'sockets': {'pulseaudio'},
+    'filesystems': {'xdg-config/kdeglobals:ro',},
+    'session_bus_policy': {
+      # 'org.kde.KGlobalSettings': 'talk',
+    },
+  },
+  'org.tuxpaint.Tuxpaint': {
+    'persistent': {'.tuxpaint'},
+  },
+  'org.kde.gwenview': {
+    'filesystems': {'xdg-config/kdeglobals:ro',},
   },
   'org.videolan.VLC': {
     'shared': {'network'},
@@ -3731,7 +4065,7 @@ flatpak_exceptions = {
   },
   'org.libreoffice.LibreOffice': {
     'sockets': {'x11'},
-    'filesystems': {'xdg-config/fontconfig:ro', 'xdg-config/gtk-3.0'},
+    'filesystems': common_gtk_configs | {'xdg-config/fontconfig:ro',},
     'session_bus_policy': {
       'com.canonical.AppMenu.Registrar': 'talk',
       'org.libreoffice.LibreOfficeIpc0': 'own',
@@ -3857,7 +4191,6 @@ flatpak_exceptions = {
     'shared': {'network'},
     'persistent': {'.thunderbird'},
   },
-  'com.github.PintaProject.Pinta': {},
   'org.kde.kdenlive': {
     'devices': {'all'},
   },
@@ -3972,6 +4305,7 @@ def update_flatpaks_and_fix_permissions():
 CHROMIUM_FLAGS = """
 --enable-features=UseOzonePlatform
 --ozone-platform=wayland
+--password-store=basic
 """
 
 CHROMIUM_FLAG_PATHS = [
@@ -4130,24 +4464,47 @@ WantedBy=default.target
 
 luks_uuids = {v:k for k,v in luks_partitions.items()}
 
+desired_luks_partition_script = '\n'.join(
+  (
+    f'cryptsetup open /dev/disk/by-partuuid/{luks_uuids[i]} {i} ' +
+    f'--key-file /etc/LUKS/{i}.key ' +
+    f'--perf-no_read_workqueue'
+  )
+  for i in luks_uuids.keys()
+)
+
 desired_luks_partition_script = f'''
-#!/bin/sh
-cryptsetup open /dev/disk/by-partuuid/{luks_uuids['Tertiary']} Tertiary --key-file /etc/LUKS/Tertiary.key --perf-no_read_workqueue
-cryptsetup open /dev/disk/by-partuuid/{luks_uuids['Quaternary']} Quaternary --key-file /etc/LUKS/Quaternary.key --perf-no_read_workqueue
-cryptsetup open /dev/disk/by-partuuid/{luks_uuids['Quinary']} Quinary --key-file /etc/LUKS/Quinary.key --perf-no_read_workqueue
+{desired_luks_partition_script}
 mount /dev/mapper/Tertiary {pool_mount_point}
 runuser -u{desired_username} -- prbsync auto_sync
 systemctl start Sessen
 '''.strip()
 
+zram_init = '/sbin/zram-init'
+
+zram_init_cmd = ' '.join((
+  zram_init,
+    '-azstd',
+    '-Lzram_swap',
+    "`LC_ALL=C free -m | awk '/^Mem:/{print int($2/2)}'`",
+    '-p1',
+))
+
 @lambda f: enabled_services.setdefault('ConsolidatedStartupScript', f)
 def get_desired_luks_partition_service():
-  if not os.path.exists(pool_mount_point):
-    return
-  p, script = read_config(luks_partition_script_path, default_contents = '')
-  if script != desired_luks_partition_script:
-    write_config(p, desired_luks_partition_script)
-    os.chmod(p, OWNER_CAN_RWX)
+  desired = ['#!/bin/sh']
+  if os.path.exists(pool_mount_point):
+    desired.append(desired_luks_partition_script)
+  if os.path.isfile(swap_file_path):
+    desired.append(shlex.join(swap_file_cmd))
+  if os.path.exists(zram_init):
+    desired.append(zram_init_cmd)
+  if len(desired) < 2:
+    return None
+  desired = '\n'.join(desired + ['exit $?'])
+  p, actual = read_config(luks_partition_script_path, default_contents = '')
+  if actual != desired:
+    write_config(p, desired, perms = OWNER_CAN_RWX)
   return luks_partition_service_template.replace('_SCRIPT', p)
 
 sessen_service_template = '''
@@ -4200,6 +4557,7 @@ Type=simple
 ExecStart=_DAEMON _DELAY _TIMEOUT _CERT _WAKER _SERVER _REPAIR
 Restart=always
 RestartSec=_TIMEOUT
+KillSignal=SIGINT
 
 [Install]
 WantedBy=default.target
@@ -4296,6 +4654,41 @@ def generate_services():
     if not service and service_name not in disabled_services:
       subprocess.check_call((systemctl, 'enable', os.path.basename(p)))
 
+service_paths_to_remove = (
+  '/etc/systemd/system/swap.target.wants/zram-swap.service',
+  '/usr/lib/systemd/system/timers.target.wants/shadow.timer',
+  '/usr/lib/systemd/system/timers.target.wants/systemd-tmpfiles-clean.timer',
+  '/usr/lib/systemd/system/timers.target.wants/man-db.timer',
+  '/usr/lib/systemd/system/timers.target.wants/archlinux-keyring-wkd-sync.timer',
+)
+
+@tasks.append
+def disable_unused_services():
+  for path in service_paths_to_remove:
+    if os.path.islink(path):
+      os.remove(path)
+
+pacman_pubring = '/etc/pacman.d/gnupg/pubring.gpg'
+A_WEEK = 7*24*60*60
+
+@tasks.append
+def run_periodic_tasks():
+  if systemd_tmpfiles := which('systemd-tmpfiles'):
+    subprocess.check_call((systemd_tmpfiles, '--clean'))
+  if mandb := which('mandb'):
+    makedirs('/var/cache/man', user = 'root')
+    subprocess.check_call((mandb, '--quiet'))
+  for i in ('pwck', 'grpck'):
+    if ck := which(i):
+      subprocess.check_call((i, '-r'))
+  keyring_sync = 'archlinux-keyring-wkd-sync'
+  if which(keyring_sync) and \
+     (time.time() - os.path.getmtime(pacman_pubring)) > A_WEEK:
+    print(f'Started {keyring_sync}')
+    subprocess.check_call(('systemctl', 'start', keyring_sync))
+    # subprocess.Popen(('systemctl', 'start', keyring_sync),
+    #                  start_new_session = True)
+
 ROOT_SSH_CONFIG_TEMPLATE = '''
 
 '''.lstrip()
@@ -4306,26 +4699,89 @@ def generate_root_ssh_config():
     return
   desired_ssh_config = (
     ROOT_SSH_CONFIG_TEMPLATE
-      .replace('$HOSTNAME', gethostname())
+      .replace('$HOSTNAME', get_hostname())
       .replace('$ID', get_id())
   )
   p, ssh_config = read_config('~/.ssh/config', default_contents = '')
   if ssh_config != desired_ssh_config:
     write_config(p, desired_ssh_config)
 
+EMERGENCY_SIGNED_RUN_CONF_TEMPLATE = '''
+PASSWORD='_PASS'
+'''.lstrip()
+
+@tasks.append
+def update_emergency_signed_run_conf():
+  if not which('emergency-signed-run'):
+    return
+  if not (password := try_get_secret('emergency_signed_run_password')):
+    raise Exception('Invalid emergency-signed-run password')
+  desired = EMERGENCY_SIGNED_RUN_CONF_TEMPLATE.replace('_PASS', password)
+  p, actual = read_config(emergency_signed_run_conf_path, default_contents='')
+  if actual != desired:
+    write_config(p, desired, perms = OWNER_CAN_RW)
+
+# @tasks.append
+# def ensure_color_scheme_updated():
+#   if not (apply_color_scheme := which('plasma-apply-colorscheme')):
+#     return
+#   # schemes = {}
+#   # for i in (custom_colors_destination, kdeglobals_path):
+#   #   (cfg := __import__('configparser').ConfigParser()).read(fixpath(i))
+#   #   schemes[i] = {v.name:dict(v.items()) for v in cfg.values()}
+#   # changed = any((
+#   #   any((v != schemes[kdeglobals_path].get(s, {}).get(k)
+#   #        for k,v in values.items()))
+#   #   for s,values in schemes[custom_colors_destination].items()
+#   # ))
+#   dest = fixpath(custom_colors_destination)
+#   if os.path.getmtime(dest) < os.path.getmtime(fixpath(kdeglobals_path)):
+#     return
+#   for i in ('BreezeDark', dest):
+#     subprocess.check_call(('runuser', '-u'+desired_username, '--',
+#                             apply_color_scheme, i))
+
+launcher_icon_dst_path = f'~{desired_username}/.local/share/icons/hicolor/512x512/apps/invader.png'
+
+@tasks.append
+def ensure_launcher_icon_is_up_to_date():
+  try:
+    src_mtime = os.path.getmtime(fixpath(launcher_icon_src_path))
+  except FileNotFoundError:
+    return
+  try:
+    dst_mtime = os.path.getmtime(fixpath(launcher_icon_dst_path))
+  except FileNotFoundError:
+    dst_mtime = -1
+  if dst_mtime >= src_mtime:
+    return
+  if not (magick := which('magick')):
+    return
+  _, svg = read_config(launcher_icon_src_path)
+  png = subprocess.check_output(
+    ('runuser', '-u'+desired_username, '--',
+     magick, '-background', 'none', 'svg:-', 'png:-'),
+    input = svg.encode(),
+  )
+  write_config(launcher_icon_dst_path,
+               png,
+               mode = 'wb',
+               user = desired_username)
+
 @tasks.append
 def update_app_cache():
   if not (kbuildsycoca := which('kbuildsycoca6')):
     return
+  (env := dict(os.environ)).pop('SUDO_GID', 0)
   subprocess.check_call(('runuser', '-u'+desired_username, '--',
-                         kbuildsycoca, '--noincremental'))
+                         kbuildsycoca, '--noincremental'),
+                        env = env)
 
 only_enable_baloo_temporarily = False
 
 @tasks.append
 def update_file_index():
-  balooctl = which('balooctl6')
-  if not balooctl:
+  if not (balooctl := which('balooctl6')):
     return
   subprocess.check_call(('runuser', '-u'+desired_username, '--',
                          balooctl, 'check'))
@@ -4989,7 +5445,7 @@ def remove_undesired_packages():
 
 @tasks.append
 def display_done_message():
-  # print('Done but manually need to pick: hostname, user and root pass, grub config, fstab, maldet, rclone')
+  # print('Done but manually need to pick: hostname, user and root pass, grub config, fstab, rclone')
   if not reasons_interactive_setup_needed:
     print('No additional steps are pending! B-)')
   print('Done!')
@@ -4997,11 +5453,50 @@ def display_done_message():
     print('Additional steps which require user interaction are pending.')
     print('Rerun lincfg with the -i or --interact flag.')
 
+ESP_GUID = 'c12a7328-f81f-11d2-ba4b-00a0c93ec93b'
+
+@lambda f: tasks.insert(0, f)
+def handle_init():
+  if not (root_dev := os.environ.get('LINCFG_INIT_ROOT', '').strip()):
+    return
+  if not is_arch_linux():
+    return
+  subprocess.check_call(('cryptsetup', 'luksFormat', root_dev))
+  subprocess.check_call(('cryptsetup', 'open', root_dev, 'lincfg_init_root'))
+  subprocess.check_call(('mkfs.btrfs', '/dev/mapper/lincfg_init_root'))
+  subprocess.check_call(('mount', '/dev/mapper/lincfg_init_root', '/mnt'))
+  subprocess.check_call(['pacstrap', '/mnt'] + get_desired_packages())
+  write_config('/mnt/etc/hostname', get_hostname(), perms = ANYONE_CAN_R)
+  subprocess.check_call((
+    'arch-chroot', '/mnt', auto_tpm_encrypt_path, '--write_key',
+  ))
+  subprocess.check_call((
+    'cryptsetup', 'luksAddKey', root_dev, '/mnt/secret.bin',
+  ))
+  if bundle_root := try_get_bundle_root():
+    chroot_bundle = os.path.join('/mnt/root', bundle_root_name)
+    shutil.copytree(bundle_root, chroot_bundle)
+    chroot_lincfg = os.path.join(chroot_bundle, lincfg_src_relpath)
+  else:
+    chroot_lincfg = '/mnt/root/lincfg.py'
+    shutil.copy2(__file__, chroot_lincfg)
+  subprocess.check_call(('arch-chroot', '/mnt', sys.executable, chroot_lincfg))
+  js = json.loads(subprocess.check_output(['lsblk', '--json', '--output-all']))
+  esp_devs = []
+  for device in js['blockdevices']:
+    for i in device.get('children', ()):
+      if i['parttype'] != ESP_GUID:
+        continue
+      esp_devs.append(os.path.join('/dev/disk/by-partuuid/', i['partuuid']))
+  if len(esp_devs) > 0:
+    subprocess.check_call((
+      'arch-chroot', '/mnt', auto_tpm_encrypt_path, '--setup_auto_tpm_decrypt',
+        '--esp', esp_devs[0],
+        '--suffix', ('Recovery' if is_recovery() else 'Main'),
+    ))
+  sys.exit()
 
 
-original_maldext_size_limit_codee = \
-  "'scan_max_filesize=`cat $sig_md5_file | cut -d':' -f2 | sort -n | tail -n1`"
-expected_maldet_size_limit_code = 'scan_max_filesize=99999999999999999'
 
 #? LINCFG R1
 #? lincfg is a Linux setup and maintenance script
@@ -5044,13 +5539,15 @@ def read_config(fname, default_contents = None):
       return p, default_contents
     raise
 
-def write_config(fname, contents, user = None, mode = 'w'):
+def write_config(fname, contents, user = None, mode = 'w', perms = None):
   fname = fixpath(fname)
   makedirs(os.path.dirname(fname), user = user)
   with open(fname, mode) as f:
-    f.write(textwrap.dedent(contents))
+    f.write(contents if 'b' in mode else textwrap.dedent(contents))
   if user:
     shutil.chown(fname, user)
+  if perms is not None:
+    os.chmod(fname, perms)
 
 def get_config_var(config, name):
   return (list(
@@ -5073,23 +5570,23 @@ def get_link_target(path):
 # NB: can't handle multiple keys with the same name in different sections yet
 def ensure_rc_values(path, values, user = desired_username):
   p, rc = read_config(path, default_contents = '')
+  return ensure_rc_values_with_cache(p, rc, values, user = user)
+
+def ensure_rc_values_with_cache(path, rc, values, user = desired_username):
+  original_rc = rc
   for section, key, value in values:
     i = rc.find(section)
     if i == -1:
-      write_config(p,
-                   rc + f'\n\n{section}\n{key}={value}\n',
-                   user = user)
+      rc += f'\n\n{section}\n{key}={value}\n'
       continue
     if f'{key}={value}' in rc:
       continue
-    if key not in rc:
-      write_config(p,
-                   rc[:i+len(section)+1] + f'{key}={value}\n' + rc[i+len(section)+1:],
-                   user = user)
+    if '\n'+key+'=' not in rc:
+      rc = rc[:i+len(section)+1] + f'{key}={value}\n' + rc[i+len(section)+1:]
       continue
-    write_config(p,
-                 re.sub(f'{key}=.+', f'{key}={value}', rc),
-                 user = user)
+    rc = re.sub(f'{key}=.+', f'{key}={value}', rc)
+  if rc != original_rc:
+    write_config(path, rc, user = user)
 
 @functools.cache
 def get_os_name():
@@ -5181,7 +5678,7 @@ def ensure_python_package(src_url, hash, user=None):
 def restore_file_from_package(pkgname, fpath):
   if not is_arch_linux():
     print('ERROR: restore_file_from_package not implemented for this OS yet!!!')
-    breakpoint()
+    raise NotImplementedError()
   subprocess.run(['pacman', '-Sw', '--noconfirm', pkgname])
   conf = {i[0].strip():i[1].split() for i in
           map(lambda i: i.split(':'),
@@ -5313,14 +5810,24 @@ def get_shell():
     return shell
   raise RuntimeError('Unable to find shell')
 
+hostname_file = '/etc/hostname'
+
 @functools.cache
-def gethostname():
-  return socket.gethostname()
+def get_hostname():
+  if hostname := os.environ.get('HOSTNAME', '').strip():
+    return hostname
+  try:
+    return read_config(hostname_file)[1].strip()
+  except FileNotFoundError:
+    return socket.gethostname()
 
 def get_id():
-  return gethostname().strip().lower().replace('-', '_')
+  return get_hostname().strip().lower().replace('-', '_')
 
 
+
+def is_recovery():
+  return 'recovery' in get_hostname().lower()
 
 def flags(name):
   a = '--'+name
