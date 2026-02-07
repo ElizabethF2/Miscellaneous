@@ -50,7 +50,7 @@ main_pacman_packages = '''
   ed noto-fonts-cjk noto-fonts-emoji noto-fonts iwd partitionmanager vulkan-radeon spectacle baobab amd-ucode fwupd
   parted plasma-meta plasma-sdk xdg-desktop-portal-gtk man-db bsd-games words busybox firewalld xdotool chntpw htop
   libappindicator-gtk3 gst-plugin-pipewire power-profiles-daemon ollama-rocm fcitx5 fcitx5-qt fcitx5-configtool
-  fcitx5-mozc nethogs  bind amdgpu_top nvtop sshfs archiso aspell aspell-en sbctl zip unzip powertop trash-cli kscreen
+  fcitx5-mozc nethogs bind amdgpu_top nvtop sshfs archiso aspell aspell-en sbctl zip unzip powertop trash-cli kscreen
   kdeplasma-addons ark pacman-contrib python-lsp-server scrcpy bluez bluez-utils bluez-obex vorbis-tools time lshw inxi
   ntfs-3g usbutils alsa-utils qemu-user-static-binfmt qemu-system-x86 qemu-img edk2-ovmf dos2unix patch imagemagick
 '''.split()
@@ -70,7 +70,7 @@ postmarketos_packages = '''
   rclone rclone-doc man-db man-pages networkmanager-doc alpine-doc aspell aspell-en aspell-doc bash-doc
   sudo sudo-doc doas doas-doc !doas-sudo-shim curl curl-doc baobab baobab-doc cryptsetup-doc findutils findutils-doc
   flashrom flashrom-doc waydroid iptables-doc iproute2-minimal ufw ufw-doc iproute2-ss sshfs sshfs-doc py3-cryptography
-  bash scrcpy redsocks htop clamav coreutils bind-tools
+  bash scrcpy redsocks htop nethogs clamav coreutils bind-tools
 '''.split()
 
 personal_postmarketos_packages = '''
