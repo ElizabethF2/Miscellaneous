@@ -70,7 +70,7 @@ postmarketos_packages = '''
   rclone rclone-doc man-db man-pages networkmanager-doc alpine-doc aspell aspell-en aspell-doc bash-doc
   sudo sudo-doc doas doas-doc !doas-sudo-shim curl curl-doc baobab baobab-doc cryptsetup-doc findutils findutils-doc
   flashrom flashrom-doc waydroid iptables-doc iproute2-minimal ufw ufw-doc iproute2-ss sshfs sshfs-doc py3-cryptography
-  bash scrcpy redsocks htop nethogs clamav coreutils bind-tools
+  bash scrcpy redsocks htop nethogs clamav coreutils bind-tools imagemagick
 '''.split()
 
 personal_postmarketos_packages = '''
@@ -915,6 +915,11 @@ plasma_desktop_rc = {
 def ensure_plasma_desktop_setup():
   p, src = read_config(plasma_applet_src_path, default_contents = '')
   sections = {}
+  if is_postmarketos():
+    plasma_desktop_rc['taskbar_pins']['values']['launchers'] = (
+      plasma_desktop_rc['taskbar_pins']['values']['launchers']
+        .replace('org.mozilla.firefox', 'firefox')
+    )
   for k,v in plasma_desktop_rc.items():
     isection = None
     for line in src.splitlines():
@@ -1470,6 +1475,11 @@ post_sync_cmds = [
 [syncable_paths.GDriveDownloads]
 local_path = '~/GDrive/Downloads'
 remote_path = 'gdrive:/Downloads'
+subvolume = false
+
+[syncable_paths.GDrivePictures]
+local_path = '~/GDrive/Pictures'
+remote_path = 'gdrive:/Pictures'
 subvolume = false
 
 [syncable_paths.GDriveProjects]
@@ -3964,7 +3974,7 @@ flatpak_exceptions = {
   'com.usebottles.bottles': {
     'shared': {'network'},
     'sockets': {'x11', 'pulseaudio'},
-    'devices': {'all'},
+    'devices': {'dri', 'input', 'all'},
     'features': {'devel', 'per-app-dev-shm', 'multiarch'},
     'filesystems': {
       f'{pool_mount_point}/BottlesDriveP',
@@ -3974,13 +3984,13 @@ flatpak_exceptions = {
   'com.valvesoftware.Steam': {
     'shared': {'network'},
     'sockets': {'x11', 'pulseaudio'},
-    'devices': {'dri', 'input',}, #{'all',},
+    'devices': {'dri', 'input', 'all'},
     'persistent': {'.'},
     'features': {'devel', 'per-app-dev-shm', 'multiarch', 'bluetooth'},
     'filesystems': {
-      'xdg-run/app/com.discordapp.Discord:create',
-      'xdg-pictures:ro',
-      'xdg-music:ro',
+      # 'xdg-run/app/com.discordapp.Discord:create',
+      # 'xdg-pictures:ro',
+      # 'xdg-music:ro',
       f'{pool_mount_point}/SteamLibrary',
       f'~{desired_username}/GDrive/Documents/Saves/Symlinked/Steam',
     },
@@ -4678,9 +4688,10 @@ def run_periodic_tasks():
   if mandb := which('mandb'):
     makedirs('/var/cache/man', user = 'root')
     subprocess.check_call((mandb, '--quiet'))
-  for i in ('pwck', 'grpck'):
-    if ck := which(i):
-      subprocess.check_call((i, '-r'))
+  if not is_postmarketos():
+    for i in ('pwck', 'grpck'):
+      if ck := which(i):
+        subprocess.check_call((i, '-r'))
   keyring_sync = 'archlinux-keyring-wkd-sync'
   if which(keyring_sync) and \
      (time.time() - os.path.getmtime(pacman_pubring)) > A_WEEK:
