@@ -817,7 +817,7 @@ rc_values_to_ensure = {
     ('[Plugins]', 'magiclampEnabled', 'true'),
     ('[Plugins]', 'blurEnabled', 'true'),
     ('[Effect-blur]', 'BlurStrength', '2'),
-    ('[Effect-blur]', 'NoiseStrength', '2'),
+    ('[Effect-blur]', 'NoiseStrength', '1'),
     ('[TabBox]', 'LayoutName', 'coverswitch'),
     ('[Effect-zoom]', 'MouseTracking', '1'), # center magnifier
   ),
@@ -4678,7 +4678,7 @@ def disable_unused_services():
     if os.path.islink(path):
       os.remove(path)
 
-pacman_pubring = '/etc/pacman.d/gnupg/pubring.gpg'
+pacman_gnupg = '/etc/pacman.d/gnupg'
 A_WEEK = 7*24*60*60
 
 @tasks.append
@@ -4693,8 +4693,8 @@ def run_periodic_tasks():
       if ck := which(i):
         subprocess.check_call((i, '-r'))
   keyring_sync = 'archlinux-keyring-wkd-sync'
-  if which(keyring_sync) and \
-     (time.time() - os.path.getmtime(pacman_pubring)) > A_WEEK:
+  if not flags('offline') and which(keyring_sync) and \
+     (time.time() - os.path.getmtime(pacman_gnupg)) > A_WEEK:
     print(f'Started {keyring_sync}')
     subprocess.check_call(('systemctl', 'start', keyring_sync))
     # subprocess.Popen(('systemctl', 'start', keyring_sync),
