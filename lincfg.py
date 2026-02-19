@@ -36,7 +36,7 @@ def ensure_swap_file_enable_if_present():
 past_pacman_packages = '''
   gamescope packagekit-qt6 maliit-keyboard squeekboard linux-zen ydotool yasm nasm powertop d-spy alsa-utils openrgb
   qjackctl cmake ninja gcc clang rust nano rsync gnome-boxes libvirt python-pyusb xorg-xeyes ydotool tk efitools
-  sof-firmware jami-qt filelight gdu meld linux linux-docs atop
+  sof-firmware jami-qt filelight gdu meld linux linux-docs atop gameconqueror
 '''.split()
 
 common_pacman_packages = '''
@@ -48,11 +48,11 @@ main_pacman_packages = '''
   less podman which sudo lynx python-cryptography python-requests python-pillow python-docs python-qtpy python-pyqt6
   git flatpak flatpak-kcm plasma-workspace kate konsole dolphin sddm ntp rclone rkhunter lynis arch-audit lsof clamav
   ed noto-fonts-cjk noto-fonts-emoji noto-fonts iwd partitionmanager vulkan-radeon spectacle baobab amd-ucode fwupd
-  parted plasma-meta plasma-sdk xdg-desktop-portal-gtk man-db bsd-games words busybox firewalld xdotool chntpw htop
+  parted plasma-meta plasma-sdk xdg-desktop-portal-gtk man-db bsd-games words firewalld xdotool chntpw htop dos2unix
   libappindicator-gtk3 gst-plugin-pipewire power-profiles-daemon ollama-rocm fcitx5 fcitx5-qt fcitx5-configtool
   fcitx5-mozc nethogs bind amdgpu_top nvtop sshfs archiso aspell aspell-en sbctl zip unzip powertop trash-cli kscreen
   kdeplasma-addons ark pacman-contrib python-lsp-server scrcpy bluez bluez-utils bluez-obex vorbis-tools time lshw inxi
-  ntfs-3g usbutils alsa-utils qemu-user-static-binfmt qemu-system-x86 qemu-img edk2-ovmf dos2unix patch imagemagick
+  ntfs-3g usbutils alsa-utils qemu-user-static-binfmt qemu-system-x86 qemu-img edk2-ovmf patch imagemagick
 '''.split()
 
 temporarily_pinned_pacman_packages = '''
@@ -510,6 +510,8 @@ common_bwrap_command_with_results_logger = f'''
 
 
 
+sftp_pool_mount_point = '/srv/sftp_pool'
+
 user_shell_shims = {
 
 
@@ -636,7 +638,19 @@ sudo /usr/bin/bash -i -c bclean "$@"
 exit $?
 ''',
 
-
+'mp': fr'''
+#!/bin/sh
+exec sshfs \
+  -o dcache_timeout=9999999 \
+  -o dcache_max_size=999999999 \
+  -o kernel_cache \
+  -o noforget \
+  -o entry_timeout=9999999 \
+  -o attr_timeout=9999999 \
+  {sftp_pool_remote_path} \
+  {sftp_pool_mount_point} \
+  "$@"
+''',
 
 'kr': r'''
 #!/bin/sh
@@ -3976,8 +3990,9 @@ flatpak_exceptions = {
     'sockets': {'x11', 'pulseaudio'},
     'devices': {'dri', 'input', 'all'},
     'features': {'devel', 'per-app-dev-shm', 'multiarch'},
-    'filesystems': {
+    'filesystems': common_gtk_configs | {
       f'{pool_mount_point}/BottlesDriveP',
+      os.path.join(sftp_pool_mount_point, 'Games', 'Bottles'),
       f'~{desired_username}/GDrive/Documents/Saves/Symlinked/Bottles',
     },
   },
@@ -3992,6 +4007,7 @@ flatpak_exceptions = {
       # 'xdg-pictures:ro',
       # 'xdg-music:ro',
       f'{pool_mount_point}/SteamLibrary',
+      os.path.join(sftp_pool_mount_point, 'Games', 'Steam'),
       f'~{desired_username}/GDrive/Documents/Saves/Symlinked/Steam',
     },
     'session_bus_policy': {
@@ -4048,6 +4064,9 @@ flatpak_exceptions = {
   },
   'org.kde.gwenview': {
     'filesystems': {'xdg-config/kdeglobals:ro',},
+  },
+  'org.gnome.Evince': {
+    'filesystems': common_gtk_configs,
   },
   'org.videolan.VLC': {
     'shared': {'network'},
@@ -4111,7 +4130,7 @@ flatpak_exceptions = {
   },
   'org.DolphinEmu.dolphin-emu': {
     'sockets': {'x11'},
-    'devices': {'all'},
+    'devices': {'dri', 'input',},
   },
   'io.sourceforge.pysolfc.PySolFC': {
     'persistent': {'.PySolFC'},
