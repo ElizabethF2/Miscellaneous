@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 
+import sys, os, subprocess, shlex, shutil, tempfile, re, urllib.request, base64
+import textwrap, inspect, json, stat, socket, hashlib, configparser, site, glob
+import pprint, errno, time, functools, pwd, fnmatch
+
 desired_username = 'Liz'
 desired_wheel_users = ('Liz',)
+
+home_root = os.path.abspath('/home')
+desired_home = os.path.join(home_root, desired_username)
 
 tasks = []
 @tasks.append
@@ -12,6 +19,8 @@ def ensure_user_exists():
     subprocess.run(['useradd', '-m', desired_username])
     if desired_username in desired_wheel_users:
       subprocess.run(['usermod', '-aG', 'wheel', desired_username])
+  if fixpath(f'~{desired_username}') != desired_home:
+    raise Exception('Expected home path missing')
 
 flag_def = [
   ('--scan',        '-s', 'Run virus, rootkit and health scanners'),
@@ -234,10 +243,6 @@ chupdate () {
   popd>/dev/null
 }
 '''
-
-import sys, os, subprocess, shlex, shutil, tempfile, re, urllib.request, base64
-import textwrap, inspect, json, stat, socket, hashlib, configparser, site, glob
-import pprint, errno, time, functools, pwd, fnmatch
 
 small_scripts = {}
 
@@ -640,13 +645,14 @@ exit $?
 
 'mp': fr'''
 #!/bin/sh
+BIGNUM=999999999
 exec sshfs \
-  -o dcache_timeout=9999999 \
-  -o dcache_max_size=999999999 \
+  -o dcache_timeout=$BIGNUM \
+  -o dcache_max_size=$BIGNUM \
   -o kernel_cache \
   -o noforget \
-  -o entry_timeout=9999999 \
-  -o attr_timeout=9999999 \
+  -o entry_timeout=$BIGNUM \
+  -o attr_timeout=$BIGNUM \
   {sftp_pool_remote_path} \
   {sftp_pool_mount_point} \
   "$@"
@@ -693,7 +699,7 @@ export PATH=$PATH:$HOME/.local/bin
 bind -s 'set completion-ignore-case on'
 
 alias wboot="boot_windows"
-alias bclean="HOME=/home/{desired_username} prbsync clean"
+alias bclean="HOME={desired_home} prbsync clean"
 alias bt_dualboot="python -Bm bt_dualboot"
 """
 
@@ -795,7 +801,8 @@ def ensure_plasma_vars_are_set_correctly():
   if plasma_vars != desired_plasma_vars:
     write_config(p, desired_plasma_vars, user = desired_username)
 
-local_cloud_drive_path = f'~{desired_username}/GDrive'
+local_cloud_drive_name = 'GDrive'
+local_cloud_drive_path = f'~{desired_username}/{local_cloud_drive_name}'
 cloud_drive_name = 'gdrive'
 cloud_drive_type = 'drive'
 
@@ -815,7 +822,8 @@ lincfg_src_dir = os.path.dirname(lincfg_project['sources'][0])
 theme_path = os.path.join(lincfg_src_dir, 'LizCustom')
 launcher_icon_src_path = os.path.join(lincfg_src_dir, 'Invader.svg')
 wallpaper_src_path = os.path.join(
-  local_cloud_drive_path,
+  desired_home,
+  local_cloud_drive_name,
   'Pictures/Wallpaper/Do a Barrel Roll by Orioto.jpg',
 )
 
@@ -920,7 +928,7 @@ plasma_desktop_rc = {
     'kv': 'plugin=org.kde.plasma.folder',
     'suffix': '[Wallpaper][org.kde.image][General]',
     'values': {
-      'Image': 'file://' + wallpaper_src_path.replace('~', '/home/'),
+      'Image': 'file://' + wallpaper_src_path,
     },
   },
 }
@@ -990,11 +998,11 @@ user_places_path = f'~{desired_username}/.local/share/user-places.xbel'
 
 user_places = {
   'OneDrive': {
-    'href': 'file:///home/Liz/OneDrive',
+    'href': f'file://{desired_home}/OneDrive',
     'icon': 'folder-cloud-symbolic',
   },
   'GDrive': {
-    'href': 'file:///home/Liz/GDrive',
+    'href': f'file://{desired_home}/GDrive',
     'icon': 'folder-cloud-symbolic',
   },
 }
@@ -2095,7 +2103,7 @@ def add_plugins_to_konsole_ui():
 # '''.lstrip()
 
 ptaskrunner_router_path = (
-  f'/home/{desired_username}/.local/share/ptaskrunner/task_router.py'
+  f'{desired_home}/.local/share/ptaskrunner/task_router.py'
 )
 
 system_files_with_exact_contents = {
@@ -2569,7 +2577,7 @@ def ensure_python_packages_updated():
 # site_package_dir = site.getsitepackages()[0]
 # if not os.path.exists(os.path.join(site_package_dir, 'alienfx')) or True:
 #   # TODO (WIP) git clone, hash, patch, etc
-#   tdir = '/home/Liz/Downloads/Unscanned/AlienFX/alienfx'
+#   tdir = f'{desired_home}/Downloads/Unscanned/AlienFX/alienfx'
 #   tdir = tdir if tdir.endswith(os.sep) else (tdir + os.sep)
 #   files = glob.glob(tdir+'alienfx/**', recursive = True)
 #   files = set(filter(lambda f: any((f.endswith(i) for i in ('.py', '.glade'))), files))
@@ -2745,7 +2753,7 @@ def interactively_setup_aur_packages():
                     '-Sw --keepbuild --keepbuilddeps ' + package)
         for cmd in cmds:
           subprocess.check_call(('podman', 'exec', '-it', package, '/bin/sh', '-c', cmd))
-        pikaur_cache = '/home/builder/.cache/pikaur/pkg/'
+        pikaur_cache = f'{home_root}/builder/.cache/pikaur/pkg/'
         o = subprocess.check_output(('podman', 'exec', '-it', package, '/bin/sh', '-c', 'ls ' + pikaur_cache))
         package_fname = list(filter(
           lambda i: 'pkg.tar' in i and i.startswith(f'{package}-'),
@@ -4131,6 +4139,7 @@ flatpak_exceptions = {
   'org.DolphinEmu.dolphin-emu': {
     'sockets': {'x11'},
     'devices': {'dri', 'input',},
+    'filesystems': common_gtk_configs,
   },
   'io.sourceforge.pysolfc.PySolFC': {
     'persistent': {'.PySolFC'},
@@ -4867,7 +4876,7 @@ def update_file_index():
 #                      preexec_fn=os.setpgrp,
 #                      env=envd)
 
-@lambda f: (tasks.insert(2, f), tasks.append(f))
+@lambda f: (tasks.insert(1, f), tasks.append(f))
 def trigger_storage_minder_cleanup_script():
   project = common_locally_cached_projects['storage_minder_cleanup_script']
   script_path = fixpath(project['destination'])
