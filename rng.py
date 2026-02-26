@@ -510,7 +510,7 @@ def main():
 
   entropy_fhs = [open(path, 'rb') for path in (args.entropy_paths or [])]
   if args.out:
-    output_fh = open(args.out, 'ab' if realtime else 'xb')
+    output_fh = open(args.out, 'ab' if args.realtime else 'xb')
   else:
     output_fh = sys.stdout.buffer
   result_ctx = generate(

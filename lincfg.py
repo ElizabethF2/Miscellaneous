@@ -44,7 +44,7 @@ def ensure_swap_file_enable_if_present():
 
 past_pacman_packages = '''
   gamescope packagekit-qt6 maliit-keyboard squeekboard linux-zen ydotool yasm nasm powertop d-spy alsa-utils openrgb
-  qjackctl cmake ninja gcc clang rust nano rsync gnome-boxes libvirt python-pyusb xorg-xeyes ydotool tk efitools
+  qjackctl cmake ninja gcc clang rust nano rsync gnome-boxes libvirt python-pyusb xorg-xeyes ydotool efitools
   sof-firmware jami-qt filelight gdu meld linux linux-docs atop gameconqueror
 '''.split()
 
@@ -65,7 +65,7 @@ main_pacman_packages = '''
 '''.split()
 
 temporarily_pinned_pacman_packages = '''
-  swtpm openfortivpn fluxbox qemu-desktop python-lz4 pypy3 zbar
+  swtpm openfortivpn fluxbox qemu-desktop python-lz4 pypy3 zbar tk python-pyperclip
 '''.split()
 
 container_pacman_packages = '''
@@ -422,6 +422,8 @@ fi
 
 @tasks.append
 def make_and_update_small_scripts():
+  if is_recovery():
+    return
   for path, code in (small_scripts | global_small_scripts).items():
     code = code.lstrip()
     p, existing_code = read_config(path, default_contents = '')
@@ -460,6 +462,8 @@ Type=Application
 
 @tasks.append
 def make_and_update_resources():
+  if is_recovery():
+    return
   for path, desired_contents in global_resources.items():
     p, existing_contents = read_config(path, default_contents = '')
     if existing_contents != desired_contents:
@@ -684,6 +688,8 @@ exec systemctl restart --user plasma-powerdevil
 
 @tasks.append
 def ensure_shell_shims_exist():
+  if is_recovery():
+    return
   for name, desired_shim_code in user_shell_shims.items():
     desired_shim_code = desired_shim_code.lstrip()
     p, shim_code = read_config(f'~{desired_username}/.local/bin/'+name,
@@ -750,18 +756,16 @@ ALL ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
 
 @tasks.append
 def ensure_sudo_is_configured_correctly():
-  if is_termux():
+  if is_termux() or not (sudo := which('sudo')):
     return
-  sudo = which('sudo')
-  if sudo:
-    sudoers_line_to_uncomment = '%wheel ALL=(ALL:ALL) ALL'
-    p, sudoers = read_config('/etc/sudoers')
-    if '# '+sudoers_line_to_uncomment in sudoers:
-      write_config(p, sudoers.replace('# '+sudoers_line_to_uncomment,
-                                      sudoers_line_to_uncomment))
-    p, f = read_config('/etc/sudoers.d/sudo_drop_in', default_contents = '')
-    if f != sudo_drop_in:
-      write_config(p, sudo_drop_in)
+  sudoers_line_to_uncomment = '%wheel ALL=(ALL:ALL) ALL'
+  p, sudoers = read_config('/etc/sudoers')
+  if '# '+sudoers_line_to_uncomment in sudoers:
+    write_config(p, sudoers.replace('# '+sudoers_line_to_uncomment,
+                                    sudoers_line_to_uncomment))
+  p, f = read_config('/etc/sudoers.d/sudo_drop_in', default_contents = '')
+  if f != sudo_drop_in:
+    write_config(p, sudo_drop_in)
 
 doas_drop_in_path = '/etc/doas.d/99-lincfg.conf'
 
@@ -777,6 +781,21 @@ def ensure_doas_is_configured_correctly():
   p, f = read_config(doas_drop_in_path, default_contents = '')
   if f != doas_drop_in:
     write_config(p, doas_drop_in)
+
+sshd_drop_in = '''
+PasswordAuthentication no
+'''.lstrip()
+# GatewayPorts yes
+
+sshd_drop_in_path = '/etc/ssh/sshd_config.d/99-lincfg.conf'
+
+@tasks.append
+def ensure_sshd_is_configured():
+  if not which('sshd'):
+    return
+  p, f = read_config(sshd_drop_in_path, default_contents = '')
+  if sshd_drop_in != f:
+    write_config(p, sshd_drop_in)
 
 common_desired_plasma_vars = '''
 export ASPELL_CONF="home-dir $HOME/GDrive/Projects/Linux/config"
@@ -795,6 +814,8 @@ def get_desired_plasma_vars():
 
 @tasks.append
 def ensure_plasma_vars_are_set_correctly():
+  if not which('plasmashell'):
+    return
   desired_plasma_vars = get_desired_plasma_vars()
   p, plasma_vars = read_config(f'~{desired_username}/.config/plasma-workspace/env/vars.sh',
                                default_contents = '')
@@ -829,6 +850,11 @@ wallpaper_src_path = os.path.join(
 
 kdeglobals_path = f'~{desired_username}/.config/kdeglobals'
 
+pool_mount_point = '/srv/pool'
+
+main_ktrash_section = f'[{os.path.join(desired_home, '.local/share/Trash')}]'
+pool_ktrash_section = f'[{os.path.join(pool_mount_point, '.Trash-1000')}]'
+
 rc_values_to_ensure = {
   kdeglobals_path: (
     ('[General]', 'ColorScheme', 'LizCustom'),
@@ -842,6 +868,11 @@ rc_values_to_ensure = {
     ('[Effect-blur]', 'NoiseStrength', '1'),
     ('[TabBox]', 'LayoutName', 'coverswitch'),
     ('[Effect-zoom]', 'MouseTracking', '1'), # center magnifier
+    (
+      '[Wayland]',
+      'InputMethod[$e]',
+      '/usr/share/applications/org.fcitx.Fcitx5.desktop',
+    ),
   ),
 
   f'~{desired_username}/.config/kglobalshortcutsrc': (
@@ -862,6 +893,8 @@ rc_values_to_ensure = {
   f'~{desired_username}/.config/katerc': (
     ('[General]', 'Last Session', 'Default'),
     ('[General]', 'Startup Session', 'last'),
+    ('[General]', 'Stash new unsaved files', 'true'),
+    ('[General]', 'Stash unsaved file changes', 'true'),
     ('[KTextEditor View]', 'Show Word Count', 'true'),
     ('[KTextEditor View]', 'Show Line Count', 'true'),
     ('[KTextEditor View]', 'Statusbar Line Column Compact Mode', 'false'),
@@ -883,11 +916,26 @@ rc_values_to_ensure = {
   f'~{desired_username}/.config/plasma-localerc': (
     ('[Formats]', 'LC_TIME', 'en_US.UTF-8'),
   ),
+
+  f'~{desired_username}/.config/fcitx5/profile': (
+    ('[Groups/0]', 'Name', 'Default'),
+    ('[Groups/0]', 'Default Layout', 'us'),
+    ('[Groups/0]', 'DefaultIM', 'mozc'),
+    ('[Groups/0/Items/0]', 'Name', 'keyboard-us'),
+    ('[Groups/0/Items/1]', 'Name', 'mozc'),
+  ),
+
+  f'~{desired_username}/.config/ktrashrc': (
+    (main_ktrash_section, 'UseSizeLimit', 'false'),
+    (main_ktrash_section, 'UseTimeLimit', 'false'),
+    (pool_ktrash_section, 'UseSizeLimit', 'false'),
+    (pool_ktrash_section, 'UseTimeLimit', 'false'),
+  ),
 }
 
 @tasks.append
 def ensure_rc_values_set():
-  if is_termux():
+  if not which('plasmashell'):
     return
   for path, values in rc_values_to_ensure.items():
     ensure_rc_values(path, values, user = desired_username)
@@ -901,7 +949,7 @@ plasma_desktop_rc = {
     'values': {
       'dateFormat': 'custom',
       'customDateFormat': 'yyyy/MM/dd',
-      'selectedTimeZones': 'America/Los_Angeles,US/Arizona,US/Eastern,Local',
+      'selectedTimeZones': 'America/Los_Angeles,Local,US/Arizona,US/Eastern',
       'lastSelectedTimezone': 'Local',
     },
   },
@@ -937,7 +985,7 @@ plasma_desktop_rc = {
 def ensure_plasma_desktop_setup():
   p, src = read_config(plasma_applet_src_path, default_contents = '')
   sections = {}
-  if is_postmarketos():
+  if which('firefox'):
     plasma_desktop_rc['taskbar_pins']['values']['launchers'] = (
       plasma_desktop_rc['taskbar_pins']['values']['launchers']
         .replace('org.mozilla.firefox', 'firefox')
@@ -969,6 +1017,8 @@ gamepadify_input_settings = {
 
 @tasks.append
 def ensure_input_configured():
+  if not which('plasmashell'):
+    return
   p, rc = read_config(f'~{desired_username}/.config/kcminputrc',
                       default_contents = '')
   values = []
@@ -982,6 +1032,102 @@ def ensure_input_configured():
       for k,v in gamepadify_input_settings.items():
         values.append((line, k, v))
   ensure_rc_values_with_cache(p, rc, values, user = desired_username)
+
+kwin_rules = {
+'gamepadify_osk': '''
+Description=Gamepadify OSK
+wmclass=Gamepadify.OSK
+wmclassmatch=1
+acceptfocusrule=2
+layer=overlay
+layerrule=2
+''',
+
+'firefox_pip': '''
+Description=Firefox PIP
+wmclass=org.mozilla.firefox
+wmclassmatch=1
+title=Picture-in-Picture
+titlematch=1
+layer=osd
+layerrule=2
+types=1
+''',
+
+'firefox_focus_stealing': '''
+Description=Focus Stealing Settings for Firefox
+wmclass=org.mozilla.firefox
+wmclasscomplete=true
+wmclassmatch=1
+fsplevelrule=2
+'''
+}
+
+def get_rc_section(rc, name):
+  offset = 0
+  while True:
+    start = rc.find(name, offset)
+    if start < 0:
+      return None
+    if start == 0:
+      break
+    if rc[start-1] == '\n':
+      break
+    offset = start + 1
+  end = rc.find('\n[', start)
+  if end < 0:
+    return rc[start:].strip()
+  return rc[start:end-1].strip()
+
+@tasks.append
+def update_kwin_rules():
+  if not which('plasmashell'):
+    return
+  p, rc = read_config(f'~{desired_username}/.config/kwinrulesrc',
+                      default_contents = '')
+  desired_rc = rc
+  general_section = get_rc_section(rc, '[General]')
+  try:
+    count_val = re.search(r'count=\d+', general_section).group(0)
+  except (TypeError, AttributeError):
+    count_val = None
+  try:
+    rules_val = re.search(r'rules=.+', general_section).group(0)
+    rule_set = set(rules_val[6:].split(',')) if len(rules_val) > 6 else set()
+  except (TypeError, AttributeError):
+    rules_val = None
+    rule_set = set()
+  for name, values in kwin_rules.items():
+    desired_section = f'[{name}]\n{values.strip()}'
+    section = get_rc_section(rc, f'[{name}]')
+    if desired_section != section:
+      if section:
+        desired_rc = desired_rc.replace(section, desired_section)
+      else:
+        desired_rc += '\n' + desired_section + '\n'
+    rule_set.add(name)
+  if general_section:
+    desired_general_section = general_section
+  else:
+    desired_general_section = '[General]'
+  desired_count_val = f'count={len(rule_set)}'
+  if count_val:
+    desired_general_section = (desired_general_section
+                               .replace(count_val, desired_count_val))
+  else:
+    desired_general_section += '\n' + desired_count_val
+  desired_rules_val = f'rules={','.join(sorted(rule_set))}'
+  if rules_val:
+    desired_general_section = (desired_general_section
+                               .replace(rules_val, desired_rules_val))
+  else:
+    desired_general_section += '\n' + desired_rules_val
+  if general_section:
+    desired_rc = desired_rc.replace(general_section, desired_general_section)
+  else:
+    desired_rc += '\n' + desired_general_section + '\n'
+  if desired_rc != rc:
+    write_config(p, desired_rc, user = desired_username)
 
 dolphin_bookmarks_path = f'~{desired_username}/.local/share/dolphin/bookmarks.xml'
 
@@ -1050,6 +1196,8 @@ def update_bookmark_xbel(path, desired_bookmarks):
 
 @tasks.append
 def update_dolphin_bookmarks_and_places():
+  if not which('plasmashell'):
+    return
   update_bookmark_xbel(dolphin_bookmarks_path, dolphin_bookmarks)
   update_bookmark_xbel(user_places_path, user_places)
 
@@ -1229,6 +1377,8 @@ def ensure_tm_is_setup_and_up_to_date():
 
 @tasks.append
 def ensure_user_files_with_exact_contents_are_correct():
+  if not which('plasmashell'):
+    return
   for path, desired_contents in user_files_with_exact_contents.items():
     path = fixpath(path)
     try:
@@ -1951,26 +2101,18 @@ name=RLog
 tooltip=
 '''.lstrip()
 
-user_files_with_exact_contents[f'~{desired_username}/.config/kate/externaltools/New%20Scratch.ini'] = '''
-[General]
-actionName=externaltool_NewScratch
-arguments=-c 'exec python ~/.local/share/npp_on_kate/new_scratch.py'
-executable=/bin/sh
-name=New Scratch
-output=Ignore
-reload=false
-save=None
-trigger=None
-'''.lstrip()
-
 kate_external_tools_configs = [
   '<Action name="externaltool_NewScratch" shortcut="Ctrl+Alt+N"/>',
+  '<Action name="externaltool_OpenLink" shortcut="Ctrl+,"/>',
 ]
 kate_external_tools_config_path = f'~{desired_username}/.local/share/kxmlgui5/externaltools/ui.rc'
 
 @tasks.append
 def ensure_kate_external_tools_setup():
-  p, kate_external_tools_config = read_config(kate_external_tools_config_path, default_contents = '')
+  if not which('kate'):
+    return
+  p, kate_external_tools_config = read_config(kate_external_tools_config_path,
+                                              default_contents = '')
   if kate_external_tools_config:
     desired = kate_external_tools_config
     for cfg in kate_external_tools_configs:
@@ -1994,7 +2136,9 @@ katepart_config_path = f'~{desired_username}/.local/share/kxmlgui5/katepart/kate
 
 @tasks.append
 def ensure_katepart_setup():
-  p, katepart_config = read_config(katepart_config_path,  default_contents = '')
+  if not which('kate'):
+    return
+  p, katepart_config = read_config(katepart_config_path, default_contents = '')
   if katepart_config:
     desired = katepart_config
     for cfg in katepart_configs:
@@ -2197,7 +2341,7 @@ logout_users = true
 
 @tasks.append
 def ensure_system_files_with_exact_contents_are_up_to_date():
-  if is_termux() or is_postmarketos():
+  if is_termux() or is_postmarketos() or is_recovery():
     return
   for path, desired_contents in system_files_with_exact_contents.items():
     p, current = read_config(path, default_contents = '')
@@ -2327,24 +2471,12 @@ Count=1
 
 @tasks.append
 def ensure_user_files_only_created_once_have_been_created():
+  if is_recovery() or is_termux():
+    return
   for path, desired_contents in user_files_only_created_once.items():
     p, old_contents = read_config(path, default_contents = '')
     if not old_contents:
       write_config(p, desired_contents, user = desired_username)
-
-@tasks.append
-def ensure_ktrash_is_configured():
-  p, ktrashrc = read_config(f'~{desired_username}/.config/ktrashrc', default_contents='')
-  if ktrashrc:
-    new_ktrashrc = ktrashrc \
-      .replace('UseSizeLimit=true', 'UseSizeLimit=false') \
-      .replace('UseTimeLimit=true', 'UseTimeLimit=false')
-    if new_ktrashrc != ktrashrc:
-      write_config(p, new_ktrashrc, user = desired_username)
-  else:
-    write_config(p, f'[{p}]\n' +
-                    'UseSizeLimit=false\n' +
-                    'UseTimeLimit=false\n')
 
 @tasks.append
 def ensure_dolphin_is_configured():
@@ -2485,8 +2617,8 @@ def remove_egrep_warning():
     write_config(p, egrep_script.replace('echo', '#echo'))
 
 desired_python_packages = {
-  'https://pypi.io/packages/source/u/uploadserver/uploadserver-6.0.0.tar.gz':
-    '68f078bcd3dd986f97d6b6ecef51c3866986858288ced5a474df7896796837bf',
+  'https://pypi.io/packages/source/u/uploadserver/uploadserver-6.0.1.tar.gz':
+    'b05bb26369e6a42878f65c6be17e8b2903bd88f23fb4e6d65c2bd994bcf06e94',
 
   'https://pypi.io/packages/source/b/bt-dualboot/bt-dualboot-1.0.1.tar.gz':
     'a63cc6bcb928b50965cf2ae7c6a0c88c696904ebd43e45a9bf47a8a0252b82ff',
@@ -3470,19 +3602,56 @@ custom_colors_destination = os.path.join(
   custom_colors_name,
 )
 
+desired_kate_external_tools_path = \
+  f'~{desired_username}/.config/kate/externaltools'
+
 desktop_locally_cached_projects = {
   'prbsync_kate_hook': {
     'sources': [
       f'~{desired_username}/GDrive/Projects/PRBSync/prbsync_mark_kate.ini'
     ],
     'destination':
-      f'~{desired_username}/.config/kate/externaltools/' +
-       'Mark%20File%20via%20PRBSync.ini',
+      f'{desired_kate_external_tools_path}/Mark%20File%20via%20PRBSync.ini',
+    'user': desired_username,
+  },
+  'npp_on_kate_new_scratch': {
+    'sources': [
+      f'~{desired_username}/OneDrive/Projects/NPP on Kate/New%20Scratch%20File.ini'
+    ],
+    'destination':
+      f'{desired_kate_external_tools_path}/New%20Scratch%20File.ini',
+    'user': desired_username,
+  },
+  'npp_on_kate_open_link': {
+    'sources': [
+      f'~{desired_username}/OneDrive/Projects/NPP on Kate/Open%20Link.ini'
+    ],
+    'destination':
+      f'{desired_kate_external_tools_path}/Open%20Link.ini',
+    'user': desired_username,
+  },
+  'npp_on_kate_saml_decode': {
+    'sources': [
+      f'~{desired_username}/OneDrive/Projects/NPP on Kate/SAML%20Decode.ini'
+    ],
+    'destination':
+      f'{desired_kate_external_tools_path}/SAML%20Decode.ini',
+    'user': desired_username,
+  },
+  'npp_on_kate_conversion_panel': {
+    'sources': [
+      f'~{desired_username}/OneDrive/Projects/NPP on Kate/Conversion%20Panel.ini'
+    ],
+    'destination':
+      f'{desired_kate_external_tools_path}/Conversion%20Panel.ini',
     'user': desired_username,
   },
   'npp_on_kate_external_tools': {
     'cwd': f'~{desired_username}/OneDrive/Projects/NPP on Kate',
-    'sources': ['conversion_panel.py', 'new_scratch.py', 'open_link.py'],
+    'sources': [
+      'conversion_panel.py', 'new_scratch.py', 'open_link.py',
+      'conversion_panel.py', 'saml_decode.py',
+    ],
     'destination': f'~{desired_username}/.local/share/npp_on_kate',
     'user': desired_username,
   },
@@ -3757,6 +3926,8 @@ def cache_projects_via_diffcp():
     projects |= arch_linux_locally_cached_projects
   if is_postmarketos():
     projects |= common_postmarketos_locally_cached_projects
+  if is_recovery():
+    projects = {'auto_tpm_encrypt': projects['auto_tpm_encrypt']}
   for project_name, project in projects.items():
     kwargs = project.copy()
     destination = kwargs.pop('destination')
@@ -3805,69 +3976,43 @@ def generate_auto_tpm_encrypt_config():
   if actual != desired:
     write_config(p, desired, perms = OWNER_CAN_RW)
 
-luks_partition_mount_root = '/srv'
-
-pool_mount_point = '/srv/pool'
-
-
-
-steam_library_dir_name = 'SteamLibrary'
-
-luks_partitions_shared_with_steam = set(luks_partitions.values())
-
-bottles_drive_folder_prefix = 'BottlesDrive'
-
-luks_partitions_shared_with_bottles = {
-  # 'T': 'Tertiary',
-  # 'Q': 'Quaternary',
-  # 'U': 'Quinary',
-}
-
-drives_mapped_to_each_bottle = {
-  # 'Secondary': ('T', 'Q', 'U',),
-  # 'Tertiary': ('T', 'Q', 'U',),
-}
+pool_paths_shared_with_flatpaks = (
+  steam_pool_path := os.path.join(pool_mount_point, 'SteamLibrary'),
+  bottles_pool_path := os.path.join(pool_mount_point, 'BottlesDriveP'),
+)
 
 bottles_bottles_path = f'~{desired_username}/.var/app/com.usebottles.bottles/data/bottles/bottles'
+bottles_to_map_pool = ('Quaternary',)
 
 @tasks.append
-def map_drives_to_each_bottle():
-  for bottle_name, drives in drives_mapped_to_each_bottle.items():
+def map_drive_to_each_bottle():
+  for bottle_name in bottles_to_map_pool:
     devdir = fixpath(
       os.path.join(bottles_bottles_path, bottle_name, 'dosdevices')
     )
     if not os.path.isdir(devdir):
       continue
-    for drive in drives:
-      drive_path = os.path.join(devdir, drive.lower()+':')
-      try:
-        current_target = os.readlink(drive_path)
-      except FileNotFoundError:
-        current_target = None
-      desired_target = os.path.join(
-        luks_partition_mount_root,
-        luks_partitions_shared_with_bottles[drive],
-        bottles_drive_folder_prefix + drive,
-      )
-      if current_target != desired_target:
-        os.symlink(desired_target, drive_path)
+    drive_path = os.path.join(devdir, 'p:')
+    try:
+      current_target = os.readlink(drive_path)
+    except FileNotFoundError:
+      current_target = None
+    if current_target != bottles_pool_path:
+      os.symlink(bottles_pool_path, drive_path)
 
 @tasks.append
-def ensure_dirs_shared_with_flatpaks_exist():
-  if len(set(luks_partitions.values())) != len(luks_partitions):
-    raise Exception(f'Unexpected duplicate partition names: {luks_partitions}')
-  for name in luks_partitions_shared_with_steam:
-    root = os.path.join(luks_partition_mount_root, name)
-    if not os.path.ismount(root):
-      continue
-    makedirs(os.path.join(root, steam_library_dir_name),
-             user = desired_username)
-  for drive_letter, name in luks_partitions_shared_with_bottles.items():
-    root = os.path.join(luks_partition_mount_root, name)
-    if not os.path.ismount(root):
-      continue
-    makedirs(os.path.join(root, bottles_drive_folder_prefix + drive_letter),
-             user = desired_username)
+def ensure_pool_paths_exist():
+  if is_recovery() or is_termux():
+    return
+  if not os.path.exists(pool_mount_point) and \
+     get_desired_luks_partition_script():
+    makedirs(pool_mount_point, user = desired_username)
+  if not os.path.exists(sftp_pool_mount_point):
+    makedirs(sftp_pool_mount_point, user = desired_username)
+  if os.path.ismount(pool_mount_point):
+    for path in pool_paths_shared_with_flatpaks:
+      if not os.path.exists(path):
+        makedirs(path, user = desired_username)
 
 potentially_missing_flatpak_dirs = [
   '/var/lib/flatpak/repo/refs/remotes',
@@ -3876,7 +4021,7 @@ potentially_missing_flatpak_dirs = [
 
 @tasks.append
 def fix_potentially_missing_flatpak_dirs():
-  if not is_postmarketos():
+  if not which('flatpak'):
     return
   for d in potentially_missing_flatpak_dirs:
     makedirs(d)
@@ -3999,7 +4144,7 @@ flatpak_exceptions = {
     'devices': {'dri', 'input', 'all'},
     'features': {'devel', 'per-app-dev-shm', 'multiarch'},
     'filesystems': common_gtk_configs | {
-      f'{pool_mount_point}/BottlesDriveP',
+      bottles_pool_path,
       os.path.join(sftp_pool_mount_point, 'Games', 'Bottles'),
       f'~{desired_username}/GDrive/Documents/Saves/Symlinked/Bottles',
     },
@@ -4009,12 +4154,12 @@ flatpak_exceptions = {
     'sockets': {'x11', 'pulseaudio'},
     'devices': {'dri', 'input', 'all'},
     'persistent': {'.'},
-    'features': {'devel', 'per-app-dev-shm', 'multiarch', 'bluetooth'},
+    'features': {'devel', 'per-app-dev-shm', 'multiarch'}, # 'bluetooth'
     'filesystems': {
       # 'xdg-run/app/com.discordapp.Discord:create',
       # 'xdg-pictures:ro',
       # 'xdg-music:ro',
-      f'{pool_mount_point}/SteamLibrary',
+      steam_pool_path,
       os.path.join(sftp_pool_mount_point, 'Games', 'Steam'),
       f'~{desired_username}/GDrive/Documents/Saves/Symlinked/Steam',
     },
@@ -4054,6 +4199,7 @@ flatpak_exceptions = {
       'org.freedesktop.FileManager1': 'talk',
     }
   },
+  'org.inkscape.Inkscape': {},
   'com.github.PintaProject.Pinta': {},
   'org.kde.krita': {
     'devices': {'dri',},
@@ -4110,6 +4256,7 @@ flatpak_exceptions = {
   },
   'com.github.k4zmu2a.spacecadetpinball': {
     #'sockets': {'pulseaudio'},
+    'devices': {'input',},
   },
   'io.github.ungoogled_software.ungoogled_chromium': common_browser_permissions | {
     'persistent': {'.pki'},
@@ -4136,6 +4283,15 @@ flatpak_exceptions = {
     'shared': {'network'},
     'devices': {'all'},
   },
+  'org.gnome.GHex': {
+    'filesystem': common_gtk_configs,
+  },
+  'com.github.afrantzis.Bless': {
+    'sockets': {'x11'},
+    'filesystem': common_gtk_configs,
+  },
+  'org.sqlitebrowser.sqlitebrowser': {},
+  'org.kde.kdiff3': {},
   'org.DolphinEmu.dolphin-emu': {
     'sockets': {'x11'},
     'devices': {'dri', 'input',},
@@ -4483,10 +4639,9 @@ def make_virtuator_symlink():
 enabled_services = {}
 disabled_services = {}
 
-luks_partition_script_path = '~/.local/bin/consolidated_startup_script'
-luks_key_path = '/etc/LUKS'
+consolidated_startup_script_path = '~/.local/bin/consolidated_startup_script'
 
-luks_partition_service_template = '''
+consolidated_startup_service_template = '''
 [Unit]
 Description=Consolidated Startup Script
 After=multi-user.target
@@ -4500,50 +4655,63 @@ ExecStart=_SCRIPT
 WantedBy=default.target
 '''.lstrip()
 
-luks_uuids = {v:k for k,v in luks_partitions.items()}
+luks_key_root = '/etc/LUKS'
 
-desired_luks_partition_script = '\n'.join(
-  (
-    f'cryptsetup open /dev/disk/by-partuuid/{luks_uuids[i]} {i} ' +
-    f'--key-file /etc/LUKS/{i}.key ' +
+luks_mount_cmd_template = (
+  'cryptsetup open /dev/disk/by-partlabel/_NAME _NAME ' +
+    f'--key-file {luks_key_root}/_NAME.key ' +
     f'--perf-no_read_workqueue'
-  )
-  for i in luks_uuids.keys()
 )
 
-desired_luks_partition_script = f'''
-{desired_luks_partition_script}
-mount /dev/mapper/Tertiary {pool_mount_point}
+luks_partition_script_ending_template = f'''
+mount /dev/mapper/_NAME {pool_mount_point}
 runuser -u{desired_username} -- prbsync auto_sync
 systemctl start Sessen
 '''.strip()
 
-zram_init = '/sbin/zram-init'
+@functools.cache
+def get_desired_luks_partition_script():
+  partitions = []
+  try:
+    for i in os.listdir(luks_key_root):
+      if i.endswith('.key'):
+        partitions.append(i[:-4])
+  except OSError:
+    pass
+  if not partitions:
+    return None
+  return '\n'.join(
+    [luks_mount_cmd_template.replace('_NAME', i) for i in partitions] +
+    [luks_partition_script_ending_template.replace('_NAME', partitions[0])]
+  )
 
-zram_init_cmd = ' '.join((
-  zram_init,
-    '-azstd',
-    '-Lzram_swap',
-    "`LC_ALL=C free -m | awk '/^Mem:/{print int($2/2)}'`",
-    '-p1',
-))
+zram_init_script = r'''
+dev=$(zramctl \
+  --find \
+  --algorithm zstd \
+  --size `LC_ALL=C free -m | awk '/^Mem:/{print int($2/2)"M"}'`
+)
+mkswap --label zram_swap "$dev"
+swapon -p1 "$dev"
+'''.strip()
 
 @lambda f: enabled_services.setdefault('ConsolidatedStartupScript', f)
-def get_desired_luks_partition_service():
+def get_desired_consolidated_startup_service():
   desired = ['#!/bin/sh']
-  if os.path.exists(pool_mount_point):
-    desired.append(desired_luks_partition_script)
+  if luks_script := get_desired_luks_partition_script():
+    desired.append(luks_script)
   if os.path.isfile(swap_file_path):
     desired.append(shlex.join(swap_file_cmd))
-  if os.path.exists(zram_init):
-    desired.append(zram_init_cmd)
+  if which('zramstart'):
+    desired.append(zram_init_script)
   if len(desired) < 2:
     return None
   desired = '\n'.join(desired + ['exit $?'])
-  p, actual = read_config(luks_partition_script_path, default_contents = '')
+  p, actual = read_config(consolidated_startup_script_path,
+                          default_contents = '')
   if actual != desired:
     write_config(p, desired, perms = OWNER_CAN_RWX)
-  return luks_partition_service_template.replace('_SCRIPT', p)
+  return consolidated_startup_service_template.replace('_SCRIPT', p)
 
 sessen_service_template = '''
 [Unit]
@@ -4694,6 +4862,7 @@ def generate_services():
 
 service_paths_to_remove = (
   '/etc/systemd/system/swap.target.wants/zram-swap.service',
+  '/etc/systemd/system/swap.target.wants/postmarketos-zram-swap.service',
   '/usr/lib/systemd/system/timers.target.wants/shadow.timer',
   '/usr/lib/systemd/system/timers.target.wants/systemd-tmpfiles-clean.timer',
   '/usr/lib/systemd/system/timers.target.wants/man-db.timer',
@@ -4722,7 +4891,7 @@ def run_periodic_tasks():
         subprocess.check_call((i, '-r'))
   keyring_sync = 'archlinux-keyring-wkd-sync'
   if not flags('offline') and which(keyring_sync) and \
-     (time.time() - os.path.getmtime(pacman_gnupg)) > A_WEEK:
+     (cached_time() - os.path.getmtime(pacman_gnupg)) > A_WEEK:
     print(f'Started {keyring_sync}')
     subprocess.check_call(('systemctl', 'start', keyring_sync))
     # subprocess.Popen(('systemctl', 'start', keyring_sync),
@@ -5244,7 +5413,7 @@ def run_arch_audit():
     return
 
   for issue, deadline in known_issues_with_deadlines.items():
-    if time.time() < time.mktime(time.strptime(deadline, '%Y-%m-%d')):
+    if cached_time() < time.mktime(time.strptime(deadline, '%Y-%m-%d')):
       known_issues.add(issue)
 
   js = json.loads(subprocess.check_output([which('arch-audit'), '--json']))
@@ -5325,7 +5494,8 @@ def backup_kate_session_for_debugging():
     old = None
   if current == old:
     return
-  fpath = os.path.join(cache_dir, f'Default-{round(time.time())}.katesession')
+  fpath = os.path.join(cache_dir,
+                       f'Default-{round(cached_time())}.katesession')
   write_config(fpath, current, user = desired_username, mode = 'x')
 
 def run_sysemctl(cmd, user = None, capture_output = False):
@@ -5606,24 +5776,38 @@ def get_link_target(path):
   except FileNotFoundError:
     return None
 
-# NB: can't handle multiple keys with the same name in different sections yet
 def ensure_rc_values(path, values, user = desired_username):
   p, rc = read_config(path, default_contents = '')
   return ensure_rc_values_with_cache(p, rc, values, user = user)
 
+def rc_regex_escape(txt):
+  for c in '$[]().*+\\':
+    txt = txt.replace(c, '\\'+c)
+  return txt
+
 def ensure_rc_values_with_cache(path, rc, values, user = desired_username):
   original_rc = rc
   for section, key, value in values:
-    i = rc.find(section)
-    if i == -1:
-      rc += f'\n\n{section}\n{key}={value}\n'
+    ekey = rc_regex_escape(key)
+    evalue = rc_regex_escape(value)
+    if old_rc_section := get_rc_section(rc, section):
+      new_rc_section = old_rc_section
+    else:
+      new_rc_section = section
+    if f'{key}={value}' in new_rc_section:
       continue
-    if f'{key}={value}' in rc:
-      continue
-    if '\n'+key+'=' not in rc:
-      rc = rc[:i+len(section)+1] + f'{key}={value}\n' + rc[i+len(section)+1:]
-      continue
-    rc = re.sub(f'{key}=.+', f'{key}={value}', rc)
+    if '\n'+key+'=' not in new_rc_section:
+      new_rc_section += f'\n{key}={value}'
+    else:
+      new_rc_section = re.sub(
+        f'\n{ekey}=.*',
+        f'\n{ekey}={evalue}',
+        new_rc_section,
+      )
+    if old_rc_section:
+      rc = rc.replace(old_rc_section, new_rc_section)
+    else:
+      rc += '\n' + new_rc_section + '\n'
   if rc != original_rc:
     write_config(path, rc, user = user)
 
@@ -5825,10 +6009,11 @@ def has_at_least_one_file(path):
 
 def get_installed_packages(include_version = True):
   if is_arch_linux():
-    proc = subprocess.run(shlex.split('pacman -Q'), capture_output=True)
+    proc = subprocess.run(shlex.split('pacman -Q'), capture_output = True)
     packages = proc.stdout.decode().splitlines()
   elif is_postmarketos():
-    proc = subprocess.run(shlex.split('apk list --installed'), capture_output=True)
+    proc = subprocess.run(shlex.split('apk list --installed'),
+                          capture_output = True)
     packages = ['-'.join(j[:-2]) + ' ' + '-'.join(j[-2:])
                 for j in (i.split()[0].split('-')
                 for i in proc.stdout.decode().splitlines())]
@@ -5841,6 +6026,10 @@ def get_installed_packages(include_version = True):
 @functools.cache
 def which(name):
   return shutil.which(name)
+
+@functools.cache
+def cached_time():
+  return time.time()
 
 def get_shell():
   if shell := which(desired_shell):
@@ -5866,7 +6055,7 @@ def get_id():
 
 
 def is_recovery():
-  return 'recovery' in get_hostname().lower()
+  return 'recover' in get_hostname().lower()
 
 def flags(name):
   a = '--'+name
