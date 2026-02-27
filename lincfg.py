@@ -4284,11 +4284,14 @@ flatpak_exceptions = {
     'devices': {'all'},
   },
   'org.gnome.GHex': {
-    'filesystem': common_gtk_configs,
+    'filesystems': common_gtk_configs,
   },
   'com.github.afrantzis.Bless': {
     'sockets': {'x11'},
-    'filesystem': common_gtk_configs,
+    'filesystems': common_gtk_configs,
+  },
+  'org.kde.kcharselect': {
+    'filesystems': {'xdg-config/kdeglobals:ro',},
   },
   'org.sqlitebrowser.sqlitebrowser': {},
   'org.kde.kdiff3': {},
