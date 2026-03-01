@@ -4244,6 +4244,9 @@ flatpak_exceptions = {
     'shared': {'network'},
     'sockets': {'x11'},
     'devices': {'dri'},
+    'filesystems': {
+      'xdg-music:ro',
+    },
     'session_bus_policy': {
       'org.freedesktop.ScreenSaver': 'talk',
       'org.mpris.MediaPlayer2.vlc': 'own',
