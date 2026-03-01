@@ -45,7 +45,7 @@ def ensure_swap_file_enable_if_present():
 past_pacman_packages = '''
   gamescope packagekit-qt6 maliit-keyboard squeekboard linux-zen ydotool yasm nasm powertop d-spy alsa-utils openrgb
   qjackctl cmake ninja gcc clang rust nano rsync gnome-boxes libvirt python-pyusb xorg-xeyes ydotool efitools
-  sof-firmware jami-qt filelight gdu meld linux linux-docs atop gameconqueror
+  sof-firmware jami-qt filelight gdu meld linux linux-docs atop gameconqueror firewalld
 '''.split()
 
 common_pacman_packages = '''
@@ -57,7 +57,7 @@ main_pacman_packages = '''
   less podman which sudo lynx python-cryptography python-requests python-pillow python-docs python-qtpy python-pyqt6
   git flatpak flatpak-kcm plasma-workspace kate konsole dolphin sddm ntp rclone rkhunter lynis arch-audit lsof clamav
   ed noto-fonts-cjk noto-fonts-emoji noto-fonts iwd partitionmanager vulkan-radeon spectacle baobab amd-ucode fwupd
-  parted plasma-meta plasma-sdk xdg-desktop-portal-gtk man-db bsd-games words firewalld xdotool chntpw htop dos2unix
+  parted plasma-meta plasma-sdk xdg-desktop-portal-gtk man-db bsd-games words xdotool chntpw htop dos2unix ufw
   libappindicator-gtk3 gst-plugin-pipewire power-profiles-daemon ollama-rocm fcitx5 fcitx5-qt fcitx5-configtool
   fcitx5-mozc nethogs bind amdgpu_top nvtop sshfs archiso aspell aspell-en sbctl zip unzip powertop trash-cli kscreen
   kdeplasma-addons ark pacman-contrib python-lsp-server scrcpy bluez bluez-utils bluez-obex vorbis-tools time lshw inxi
@@ -2615,6 +2615,24 @@ def remove_egrep_warning():
   p, egrep_script = read_config(which('egrep'))
   if 'echo' in egrep_script and 'warning' in egrep_script and '#echo' not in egrep_script:
     write_config(p, egrep_script.replace('echo', '#echo'))
+
+ufw_conf_path = '/etc/ufw/ufw.conf'
+ufw_user_conf_path = '/etc/ufw/user.rules'
+sessen_port = 9292
+
+@tasks.append
+def configue_ufw():
+  if not (ufw := which('ufw')):
+    return
+  p, conf = read_config(ufw_conf_path, default_contents = '')
+  if '\nENABLED=yes' not in conf:
+    subprocess.check_call((ufw, 'enable'))
+    subprocess.check_call(('systemctl', 'enable', 'ufw'))
+  if not is_arch_linux() or is_recovery():
+    return
+  p, conf = read_config(ufw_user_conf_path, default_contents = '')
+  if str(sessen_port) not in conf:
+    subprocess.check_call((ufw, 'allow', 'proto', 'tcp', 'to', '0.0.0.0/0', 'port', str(sessen_port)))
 
 desired_python_packages = {
   'https://pypi.io/packages/source/u/uploadserver/uploadserver-6.0.1.tar.gz':

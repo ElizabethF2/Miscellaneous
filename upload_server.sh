@@ -27,12 +27,19 @@ UPLOADSERVERTEMPDIR="${UPLOADSERVERTEMPDIR:-"/tmp/uploadservertemp"}"
 
 mkdir -p "$UPLOADSERVERTEMPDIR/www"
 pushd "$UPLOADSERVERTEMPDIR"
-openssl req -x509 -out server.pem -keyout server.pem -newkey rsa:2048 -nodes -sha256 -subj '/CN=server'
+openssl req -x509 \
+  -out server.pem \
+  -keyout server.pem \
+  -newkey rsa:2048 \
+  -nodes -sha256 \
+  -subj '/CN=server'
 printf '\n\nCertificate Fingerprint:\n'
 openssl x509 -fingerprint -sha256 -noout -in server.pem
 printf '\n\nPublic Key Fingerprint:\n'
 openssl pkey -pubin -in server.pem | sed '1d;$d' | base64 -d | openssl sha256
 type firewall-cmd >/dev/null 2>/dev/null && firewall-cmd --add-port=$PORT/tcp
+type ufw >/dev/null 2>/dev/null && \
+  iptables -A ufw-user-input -p tcp -m tcp --dport 9062 -j ACCEPT
 cd www
 printf '\n\nLocal IP:\n'
 ip addr | grep inet
