@@ -2621,16 +2621,16 @@ ufw_user_conf_path = '/etc/ufw/user.rules'
 sessen_port = 9292
 
 @tasks.append
-def configue_ufw():
+def configure_ufw():
   if not (ufw := which('ufw')):
     return
-  p, conf = read_config(ufw_conf_path, default_contents = '')
+  _, conf = read_config(ufw_conf_path, default_contents = '')
   if '\nENABLED=yes' not in conf:
     subprocess.check_call(('systemctl', 'enable', 'ufw'))
     subprocess.check_call((ufw, 'enable'))
   if not is_arch_linux() or is_recovery():
     return
-  p, conf = read_config(ufw_user_conf_path, default_contents = '')
+  _, conf = read_config(ufw_user_conf_path, default_contents = '')
   if str(sessen_port) not in conf:
     subprocess.check_call((ufw, 'allow', 'proto', 'tcp', 'to', '0.0.0.0/0', 'port', str(sessen_port)))
 
