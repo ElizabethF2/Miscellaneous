@@ -2626,8 +2626,8 @@ def configue_ufw():
     return
   p, conf = read_config(ufw_conf_path, default_contents = '')
   if '\nENABLED=yes' not in conf:
-    subprocess.check_call((ufw, 'enable'))
     subprocess.check_call(('systemctl', 'enable', 'ufw'))
+    subprocess.check_call((ufw, 'enable'))
   if not is_arch_linux() or is_recovery():
     return
   p, conf = read_config(ufw_user_conf_path, default_contents = '')
