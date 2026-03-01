@@ -4689,6 +4689,7 @@ def get_desired_luks_partition_script():
   )
 
 zram_init_script = r'''
+modprobe zram
 dev=$(zramctl \
   --find \
   --algorithm zstd \
