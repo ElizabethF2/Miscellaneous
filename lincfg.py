@@ -523,6 +523,11 @@ sftp_pool_mount_point = '/srv/sftp_pool'
 
 user_shell_shims = {
 
+'kt': '''
+#!/bin/sh
+exec kioclient move "$@" trash:/
+''',
+
 
 
 'sdxl': '''
