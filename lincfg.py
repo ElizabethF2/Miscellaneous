@@ -340,6 +340,11 @@ systemd-run --unit=psnooze \
 systemctl stop MissionControlLite
 '''.lstrip()
 
+small_scripts[f'~{desired_username}/.local/bin/psnooze'] = fr'''
+#!/bin/sh
+exec sudo /bin/sh /root/.local/bin/psnooze
+'''.lstrip()
+
 small_scripts[f'/root/.local/bin/pwake'] = r'''
 #!/bin/sh
 # systemctl start Sessen
@@ -350,7 +355,7 @@ systemctl stop psnooze.timer
 small_scripts[f'~{desired_username}/.local/bin/ptm'] = '''
 #!/bin/sh
 sudo ptaskrunner Minimal || exit $?
-kill -HUP $PPID || exit $?
+exec kill -HUP $PPID
 '''
 
 small_scripts[f'~{desired_username}/.local/bin/ptr'] = '''
@@ -525,7 +530,7 @@ user_shell_shims = {
 
 'kt': '''
 #!/bin/sh
-exec kioclient move "$@" trash:/
+QT_QPA_PLATFORM=minimal exec kioclient move "$@" trash:/
 ''',
 
 
@@ -2251,9 +2256,8 @@ def add_plugins_to_konsole_ui():
 # ]
 # '''.lstrip()
 
-ptaskrunner_router_path = (
-  f'{desired_home}/.local/share/ptaskrunner/task_router.py'
-)
+ptaskrunner_dir = f'{desired_home}/.local/share/ptaskrunner'
+ptaskrunner_router_path = f'{ptaskrunner_dir}/task_router.py'
 
 system_files_with_exact_contents = {
 # Works with most controllers
@@ -2312,9 +2316,10 @@ logout_users = true
 
 [profiles.Minimal]
 user = '{desired_username}'
-task = 'python {ptaskrunner_router_path} task'
+# task = 'python {ptaskrunner_router_path} task'
+task = 'sh {ptaskrunner_dir}/task_queue.sh'
 pre_stop_cmds = ['powerprofilesctl set performance']
-post_restore_cmds = ['sudo -u {desired_username} sh -c "prbsync auto ; exit"']
+# post_restore_cmds = ['sudo -u {desired_username} sh -c "prbsync auto ; exit"']
 snooze_timeout = '5 hours'
 stopped_services = [
   'display-manager',
@@ -2329,7 +2334,7 @@ stopped_services = [
   'MissionControlLite',
   'Sessen',
   'NetworkManager',
-  'firewalld.service',
+  #'firewalld.service',
   'systemd-networkd',
   'systemd-resolved',
   'systemd-timesyncd',
