@@ -35,7 +35,7 @@ swap_file_path = '/var/swapfile'
 swap_file_cmd = ('swapon', '-p2', swap_file_path)
 
 @tasks.append
-def ensure_swap_file_enable_if_present():
+def ensure_swap_file_enabled_if_present():
   if not os.path.isfile(swap_file_path):
     return
   _, swaps = read_config('/proc/swaps')
@@ -79,12 +79,12 @@ postmarketos_packages = '''
   rclone rclone-doc man-db man-pages networkmanager-doc alpine-doc aspell aspell-en aspell-doc bash-doc
   sudo sudo-doc doas doas-doc !doas-sudo-shim curl curl-doc baobab baobab-doc cryptsetup-doc findutils findutils-doc
   flashrom flashrom-doc waydroid iptables-doc iproute2-minimal ufw ufw-doc iproute2-ss sshfs sshfs-doc py3-cryptography
-  bash scrcpy redsocks htop nethogs clamav coreutils bind-tools imagemagick
+  bash scrcpy redsocks htop nethogs clamav coreutils bind-tools imagemagick fcitx5-qt fcitx5-configtool
 '''.split()
 
 personal_postmarketos_packages = '''
   podman podman-doc passt passt-doc py3-lsp-server tpm2-tools tpm2-tools-doc tpm2-tss-dev xmessage xmessage-doc
-  vlc-qt vlc-doc git git-doc lynis lynis-doc
+  vlc-qt vlc-doc git git-doc lynis lynis-doc py3-qtpy py3-qt6
 '''.split()
 
 termux_packages = '''
@@ -125,6 +125,27 @@ def install_or_update_packages():
                    check = True,
                    input = b'Y\n')
     subprocess.run(('apk', 'upgrade'), check = True, input = b'Y\nY\n')
+
+alpine_testing_repo = 'http://dl-cdn.alpinelinux.org/alpine/edge/community'
+alpine_testing_packages = {
+  'krdp': lambda: is_parent_pc() and not which('krdp'),
+  'fcitx5-mozc': (
+    lambda: not is_parent_pc() and not os.path.exists('/usr/lib/mozc')
+  ),
+}
+
+@tasks.append
+def handle_testing_packages():
+  if not is_postmarketos():
+    return
+  packages_to_install = []
+  for package, condition in alpine_testing_packages.items():
+    if condition():
+      packages_to_install.append(package)
+  if not packages_to_install:
+    return
+  cmd = ['apk', 'add', f'--repository={alpine_testing_repo}']
+  subprocess.run(cmd + packages_to_install, check = True, input = b'Y\n')
 
 desired_timezone = 'US/Pacific'
 # desired_timezone = 'US/Arizona'
@@ -452,7 +473,7 @@ Keywords=system;update;updates;
 
 Exec=konsole --new-tab -e gui-lincfg
 StartupNotify=false
-'''.lstrip(),
+''',
 
 '/usr/share/applications/turn-off-screen.desktop': '''
 [Desktop Entry]
@@ -470,6 +491,7 @@ def make_and_update_resources():
   if is_recovery():
     return
   for path, desired_contents in global_resources.items():
+    desired_contents = desired_contents.lstrip()
     p, existing_contents = read_config(path, default_contents = '')
     if existing_contents != desired_contents:
       write_config(p, desired_contents)
@@ -759,6 +781,7 @@ ALL ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/lincfg -o
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/persistent_tmux {desired_username}
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/systemd-run -- /usr/bin/alt_os_util switch_gpu_inner {desired_username}
 ALL ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
+%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -Im gamepadify.osk
 
 
 # %wheel ALL=(root) NOPASSWD: /root/.local/bin/krdp-helper Alice
@@ -881,8 +904,10 @@ rc_values_to_ensure = {
     (
       '[Wayland]',
       'InputMethod[$e]',
-      '/usr/share/applications/org.fcitx.Fcitx5.desktop',
+      # '/usr/share/applications/org.fcitx.Fcitx5.desktop',
+      '/usr/share/applications/fcitx5-wayland-launcher.desktop',
     ),
+    ('[Wayland]', 'VirtualKeyboardEnabled', 'true'),
   ),
 
   f'~{desired_username}/.config/kglobalshortcutsrc': (
@@ -1051,6 +1076,7 @@ wmclassmatch=1
 acceptfocusrule=2
 layer=overlay
 layerrule=2
+positionrule=4
 ''',
 
 'firefox_pip': '''
@@ -3733,6 +3759,11 @@ desktop_locally_cached_projects = {
 }
 
 personal_desktop_locally_cached_projects = {
+  'gamepadify_lib': {
+    'cwd': f'~{desired_username}/GDrive/Projects/Gamepadify/src',
+    'source_patterns': ['*'],
+    'destination': os.path.join(SYSTEM_SITE_PACKAGES, 'gamepadify'),
+  },
   'perfm': {
     'sources': [f'~{desired_username}/GDrive/Projects/PerfM/perfm.py'],
     'destination': f'~{desired_username}/.local/bin/perfm',
@@ -3867,11 +3898,6 @@ arch_linux_locally_cached_projects = {
     'destination': '/usr/bin/steamrollr',
     'mode': ANYONE_CAN_RX,
   },
-  'gamepadify_lib': {
-    'cwd': f'~{desired_username}/GDrive/Projects/Gamepadify/src',
-    'source_patterns': ['*'],
-    'destination': os.path.join(SYSTEM_SITE_PACKAGES, 'gamepadify'),
-  },
   'gamepadify_config': {
     'sources': [f'~{desired_username}/GDrive/Projects/Gamepadify/mygamepad'],
     'destination': f'~root/.local/bin/mygamepad',
@@ -3883,6 +3909,14 @@ arch_linux_locally_cached_projects = {
   },
 }
 
+personal_postmarketos_locally_cached_projects = {
+  'gamepadify_osk_shortcut': {
+    'sources': [f'~{desired_username}/GDrive/Projects/Gamepadify/gamepadify-osk.desktop'],
+    'destination': '/usr/share/applications/gamepadify-osk.desktop',
+    'mode': ANYONE_CAN_R,
+  },
+}
+
 all_locally_cached_projects = (
   common_locally_cached_projects |
   common_personal_locally_cached_projects |
@@ -3890,6 +3924,7 @@ all_locally_cached_projects = (
   personal_desktop_locally_cached_projects |
   arch_linux_locally_cached_projects |
   common_postmarketos_locally_cached_projects |
+  personal_postmarketos_locally_cached_projects |
   {'lincfg': lincfg_project}
 )
 
@@ -3954,6 +3989,8 @@ def cache_projects_via_diffcp():
     projects |= arch_linux_locally_cached_projects
   if is_postmarketos():
     projects |= common_postmarketos_locally_cached_projects
+    if not is_parent_pc:
+      projects |= personal_postmarketos_locally_cached_projects
   if is_recovery():
     projects = {'auto_tpm_encrypt': projects['auto_tpm_encrypt']}
   for project_name, project in projects.items():
