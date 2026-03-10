@@ -781,7 +781,7 @@ ALL ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/lincfg -o
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/persistent_tmux {desired_username}
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/systemd-run -- /usr/bin/alt_os_util switch_gpu_inner {desired_username}
 ALL ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
-%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -Im gamepadify.osk
+%wheel ALL=(root) NOPASSWD: /usr/bin/python3 -Im gamepadify.osk --force-wayland
 
 
 # %wheel ALL=(root) NOPASSWD: /root/.local/bin/krdp-helper Alice
@@ -3989,7 +3989,7 @@ def cache_projects_via_diffcp():
     projects |= arch_linux_locally_cached_projects
   if is_postmarketos():
     projects |= common_postmarketos_locally_cached_projects
-    if not is_parent_pc:
+    if not is_parent_pc():
       projects |= personal_postmarketos_locally_cached_projects
   if is_recovery():
     projects = {'auto_tpm_encrypt': projects['auto_tpm_encrypt']}
