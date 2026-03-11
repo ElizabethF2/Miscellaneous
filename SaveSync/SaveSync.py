@@ -84,7 +84,6 @@ def sync_save(name, local_path, cloud_path):
     print('  Local parent dir missing. Assuming game not installed locally. Skipping...')
 
 MC_MAPS = {
-
   # 'Example':  'W2tPmrKZ4ql=',
 }
 

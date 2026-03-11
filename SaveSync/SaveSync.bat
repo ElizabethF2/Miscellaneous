@@ -69,14 +69,11 @@ Function Sync-Save
 }
 
 $MC_MAPS = @{
-
   Example = 'W2tPmrKZ4ql=';
 };
 
 # $LOCAL_MC_SAVES = $env:LocalAppData + '\Packages\Microsoft.MinecraftUWP_8wekyb3d8bbwe\LocalState\games\com.mojang\minecraftWorlds';
 # $LOCAL_MC_SAVES = $env:AppData + '\Minecraft Bedrock\Users\123\games\com.mojang\minecraftWorlds';
-
-
 
 foreach ($i in $MC_MAPS.GetEnumerator())
 {

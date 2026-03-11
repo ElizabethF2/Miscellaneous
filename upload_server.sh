@@ -39,7 +39,7 @@ printf '\n\nPublic Key Fingerprint:\n'
 openssl pkey -pubin -in server.pem | sed '1d;$d' | base64 -d | openssl sha256
 type firewall-cmd >/dev/null 2>/dev/null && firewall-cmd --add-port=$PORT/tcp
 type ufw >/dev/null 2>/dev/null && \
-  iptables -A ufw-user-input -p tcp -m tcp --dport 9062 -j ACCEPT
+  sudo iptables -A ufw-user-input -p tcp -m tcp --dport $PORT -j ACCEPT
 cd www
 printf '\n\nLocal IP:\n'
 ip addr | grep inet

@@ -544,8 +544,6 @@ common_bwrap_command_with_results_logger = f'''
   --bind-try ~/GDrive ~/GDrive \\
 '''.strip()
 
-
-
 sftp_pool_mount_point = '/srv/sftp_pool'
 
 user_shell_shims = {
@@ -554,8 +552,6 @@ user_shell_shims = {
 #!/bin/sh
 QT_QPA_PLATFORM=minimal exec kioclient move "$@" trash:/
 ''',
-
-
 
 'sdxl': '''
 #!/bin/sh
@@ -701,8 +697,6 @@ systemctl restart --user plasma-plasmashell || exit $?
 exec systemctl restart --user plasma-powerdevil
 ''',
 
-
-
 # 'sgd': fr'''
 # #!/bin/sh
 # echo gateway > /proc/$$/comm
@@ -782,7 +776,7 @@ ALL ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/lincfg -o
 {desired_username} ALL=(root) NOPASSWD: /usr/bin/systemd-run -- /usr/bin/alt_os_util switch_gpu_inner {desired_username}
 ALL ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
 %wheel ALL=(root) NOPASSWD: /usr/bin/python3 -Im gamepadify.osk --force-wayland
-
+%wheel ALL=(root) NOPASSWD: /usr/bin/iptables -A ufw-user-input -p tcp -m tcp --dport 9062 -j ACCEPT
 
 # %wheel ALL=(root) NOPASSWD: /root/.local/bin/krdp-helper Alice
 '''.lstrip()
@@ -803,7 +797,6 @@ def ensure_sudo_is_configured_correctly():
 doas_drop_in_path = '/etc/doas.d/99-lincfg.conf'
 
 doas_drop_in = r'''
-
 permit nopass :users as root cmd /usr/bin/emergency-signed-run args
 '''.lstrip()
 
@@ -1071,11 +1064,13 @@ def ensure_input_configured():
 kwin_rules = {
 'gamepadify_osk': '''
 Description=Gamepadify OSK
-wmclass=Gamepadify.OSK
+wmclass=Gamepadify-OSK
 wmclassmatch=1
 acceptfocusrule=2
 layer=overlay
 layerrule=2
+placement=7
+placementrule=2
 positionrule=4
 ''',
 
@@ -1168,7 +1163,6 @@ def update_kwin_rules():
 dolphin_bookmarks_path = f'~{desired_username}/.local/share/dolphin/bookmarks.xml'
 
 dolphin_bookmarks = {
-
 
   # 'NameHere': {
   #   'href': 'sftp://example/path',
@@ -1794,7 +1788,7 @@ kept_paths = ['LICENSE']
 'user.email' = '<>'
 
 [substitutions]
-'(?s)#\s*GIT_MIRROR_SYNC_EXCLUDE_BEGIN.+?GIT_MIRROR_SYNC_EXCLUDE_END' = ''
+'(?s)\s*#\s*GIT_MIRROR_SYNC_EXCLUDE_BEGIN.+?GIT_MIRROR_SYNC_EXCLUDE_END' = ''
 '(?is)rem\s*GIT_MIRROR_SYNC_EXCLUDE_BEGIN.+?GIT_MIRROR_SYNC_EXCLUDE_END' = ''
 '(?s)//\s*GIT_MIRROR_SYNC_EXCLUDE_BEGIN.+?GIT_MIRROR_SYNC_EXCLUDE_END' = ''
 
@@ -1852,7 +1846,6 @@ destination = '~/.local/share/git_mirrors/SandboxPy'
 
 [repos.Readyr]
 source = '~/OneDrive/Projects/Sessen/Extensions/Readyr'
-
 destination = '~/.local/share/git_mirrors/Readyr'
 {git_mirror_sync_urls('Readyr')}
 
@@ -1900,13 +1893,11 @@ destination = '~/.local/share/git_mirrors/GiantCursor'
 
 [repos.ReflectiveNAS]
 source = '~/OneDrive/Projects/ReflectiveNAS'
-
 destination = '~/.local/share/git_mirrors/ReflectiveNAS'
 {git_mirror_sync_urls('ReflectiveNAS')}
 
 [repos.EncryptedNasBase]
 source = '~/OneDrive/Projects/ReflectiveNAS/EncryptedNAS'
-
 destination = '~/.local/share/git_mirrors/EncryptedNAS/base'
 
 [repos.EncryptedNasExtension]
@@ -1924,7 +1915,6 @@ destination = '~/.local/share/git_mirrors/EncryptedNAS'
 
 [repos.RedundantNAS]
 source = '~/OneDrive/Projects/RedundantNAS'
-
 destination = '~/.local/share/git_mirrors/RedundantNAS'
 {git_mirror_sync_urls('RedundantNAS')}
 
@@ -2406,8 +2396,6 @@ user_files_with_exact_contents[f'~{desired_username}/.ssh/config'] = f'''
 #   User root
 #   IdentitiesOnly yes
 #   IdentityFile ~/.cache/linux_vm_key.pem
-
-
 '''.lstrip()
 
 # TODO
@@ -4970,7 +4958,6 @@ def run_periodic_tasks():
     #                  start_new_session = True)
 
 ROOT_SSH_CONFIG_TEMPLATE = '''
-
 '''.lstrip()
 
 @tasks.append
@@ -5777,8 +5764,6 @@ def handle_init():
     ))
   sys.exit()
 
-
-
 #? LINCFG R1
 #? lincfg is a Linux setup and maintenance script
 #? It will install, update and configure software and perform health checks
@@ -6124,8 +6109,6 @@ def get_hostname():
 def get_id():
   return get_hostname().strip().lower().replace('-', '_')
 
-
-
 def is_recovery():
   return 'recover' in get_hostname().lower()
 
@@ -6166,7 +6149,4 @@ def main():
 
 if __name__ == '__main__':
   main()
-
-
-
 
