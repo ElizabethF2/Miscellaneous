@@ -905,7 +905,18 @@ rc_values_to_ensure = {
 
   f'~{desired_username}/.config/kglobalshortcutsrc': (
     ('[kwin]', 'Window Operations Menu', 'Alt+Space,Alt+F3,Window Menu'),
-    ('[services][turn-off-screen.desktop]', '_launch', 'Meta+F2'),
+    ('[services][turn-off-screen.desktop]', '_launch', r'Meta+F2\\tMeta+Z'),
+    ('[mediacontrol]', 'nextmedia', 'Media Next; Meta+S'),
+    (
+      '[mediacontrol]',
+      'nextmedia',
+      r'Meta+F\\tMedia Next,Media Next,Media playback next',
+    ),
+    (
+      '[mediacontrol]',
+      'playpausemedia',
+      r'Media Play\\tMeta+S,Media Play,Play/Pause media playback',
+    ),
   ),
 
   f'~{desired_username}/.config/plasmanotifyrc': (
@@ -2574,6 +2585,7 @@ desired_sysctl_values = {
   'kernel.kptr_restrict': 2,
   'kernel.perf_event_paranoid': 3,
   'kernel.unprivileged_bpf_disabled': 1,
+  'kernel.panic': 180,
   'net.core.bpf_jit_harden': 2,
   'net.ipv4.conf.all.accept_redirects': 0,
   'net.ipv4.conf.all.rp_filter': 1,
@@ -3999,7 +4011,7 @@ def generate_auto_tpm_encrypt_config():
   _, cpuinfo = read_config('/proc/cpuinfo', default_contents = '')
   is_amd = 'AuthenticAMD' in cpuinfo
   is_intel = 'GenuineIntel' in cpuinfo
-  kargs = ['loglevel=3', 'quiet']
+  kargs = ['loglevel=3', 'quiet', 'consoleblank=60']
   if is_amd:
     kargs.append('amd_iommu=force_isolation')
   if is_intel:
@@ -5858,7 +5870,7 @@ def ensure_rc_values_with_cache(path, rc, values, user = desired_username):
     else:
       new_rc_section = re.sub(
         f'\n{ekey}=.*',
-        f'\n{ekey}={evalue}',
+        f'\n{key}={value}',
         new_rc_section,
       )
     if old_rc_section:
