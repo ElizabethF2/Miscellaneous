@@ -45,7 +45,7 @@ def ensure_swap_file_enabled_if_present():
 past_pacman_packages = '''
   gamescope packagekit-qt6 maliit-keyboard squeekboard linux-zen ydotool yasm nasm powertop d-spy alsa-utils openrgb
   qjackctl cmake ninja gcc clang rust nano rsync gnome-boxes libvirt python-pyusb xorg-xeyes ydotool efitools
-  sof-firmware jami-qt filelight gdu meld linux linux-docs atop gameconqueror firewalld
+  sof-firmware jami-qt filelight gdu meld linux linux-docs atop gameconqueror firewalld qrca
 '''.split()
 
 common_pacman_packages = '''
@@ -242,6 +242,10 @@ bind -s 'set completion-ignore-case on'
 (prbsync notify &)
 '''
 
+# if [ "$TERM" = "linux" ] ; then
+#   setterm --blank 1 &
+# fi
+
 old_user_bashrc_suffix = r'''
 export PYTHONPATH=~/.local/state/pythonpkgs
 
@@ -339,6 +343,32 @@ subprocess.check_call(sudo_cmd_prefix + (
 sys.exit(proc.returncode)
 '''.lstrip()
 
+small_scripts[f'~{desired_username}/.local/bin/deadwait'] = r'''
+#!/usr/bin/env python3
+try:
+  with open('/proc/self/comm', 'r+') as f:
+    f.write('deadwait')
+except (FileNotFoundError, PermissionError):
+  pass
+import subprocess, json, time
+js = json.loads(subprocess.check_output(('loginctl', '--json=short')))
+sessions = []
+for i in js:
+  if i.get('seat'):
+    sessions.append(i['session'])
+if not sessions:
+  raise Exception('no valid sessions')
+while True:
+  unlocked = False
+  time.sleep(60)
+  for session in sessions:
+    out = subprocess.check_output(('loginctl', 'show-session', session))
+  if b'LockedHint=yes' not in out:
+    unlocked = True
+  if not unlocked:
+    break
+'''
+
 small_scripts[f'~{desired_username}/.local/bin/maxfan'] = r'''
 #!/bin/sh
 echo maxfan MaxFan > /proc/$$/comm
@@ -377,6 +407,12 @@ small_scripts[f'~{desired_username}/.local/bin/ptm'] = '''
 #!/bin/sh
 sudo ptaskrunner Minimal || exit $?
 exec kill -HUP $PPID
+'''
+
+small_scripts[f'~{desired_username}/.local/bin/dptm'] = '''
+#!/bin/sh
+deadwait || exit $?
+exec ptm
 '''
 
 small_scripts[f'~{desired_username}/.local/bin/ptr'] = '''
@@ -969,6 +1005,17 @@ rc_values_to_ensure = {
     (main_ktrash_section, 'UseTimeLimit', 'false'),
     (pool_ktrash_section, 'UseSizeLimit', 'false'),
     (pool_ktrash_section, 'UseTimeLimit', 'false'),
+  ),
+
+  f'~{desired_username}/.config/kscreenlockerrc': (
+    ('[Daemon]', 'Timeout', '20'),
+  ),
+
+  f'~{desired_username}/.config/powerdevilrc': (
+    ('[AC][Display]', 'DimDisplayWhenIdle', 'False'),
+    ('[AC][Display]', 'TurnOffDisplayIdleTimeoutSec', '300'),
+    ('[AC][SuspendAndShutdown]', 'AutoSuspendAction', '0'),
+    ('[AC][SuspendAndShutdown]', 'LidAction', '64'),
   ),
 }
 
@@ -4011,7 +4058,7 @@ def generate_auto_tpm_encrypt_config():
   _, cpuinfo = read_config('/proc/cpuinfo', default_contents = '')
   is_amd = 'AuthenticAMD' in cpuinfo
   is_intel = 'GenuineIntel' in cpuinfo
-  kargs = ['loglevel=3', 'quiet', 'consoleblank=60']
+  kargs = ['loglevel=3', 'quiet']
   if is_amd:
     kargs.append('amd_iommu=force_isolation')
   if is_intel:
@@ -4740,6 +4787,12 @@ runuser -u{desired_username} -- prbsync auto_sync
 systemctl start Sessen
 '''.strip()
 
+tty_setup_script = '''
+for i in ls '0 1 2 3 4 5 6 7' ; do
+  setterm --term linux --blank 1 > "/dev/tty$i"
+done
+'''.strip()
+
 @functools.cache
 def get_desired_luks_partition_script():
   partitions = []
@@ -4776,6 +4829,8 @@ def get_desired_consolidated_startup_service():
     desired.append(shlex.join(swap_file_cmd))
   if which('zramstart'):
     desired.append(zram_init_script)
+  if which('setterm'):
+    desired.append(tty_setup_script)
   if len(desired) < 2:
     return None
   desired = '\n'.join(desired + ['exit $?'])
@@ -5653,7 +5708,7 @@ def live_soft_reboot():
   if not sys.stdin.isatty():
     return
   user_svc = set(restartable_user_services)
-  if has_proc_comm(('wineserver', 'firefox-bin')):
+  if has_proc_comm(('wineserver', 'firefox-bin', 'msedge')):
     user_svc -= {'pipewire-pulse', 'pipewire', 'wireplumber'}
   for u, restartable in ((None, restartable_system_services),
                          (desired_username, user_svc)):
