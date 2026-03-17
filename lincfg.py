@@ -4787,8 +4787,8 @@ runuser -u{desired_username} -- prbsync auto_sync
 systemctl start Sessen
 '''.strip()
 
-tty_setup_script = '''
-for i in ls '0 1 2 3 4 5 6 7' ; do
+tty_setup_script = f'''
+for i in {' '.join(map(str, range(8)))} ; do
   setterm --term linux --blank 1 > "/dev/tty$i"
 done
 '''.strip()
