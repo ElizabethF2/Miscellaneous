@@ -34,6 +34,9 @@ flag_def = [
 swap_file_path = '/var/swapfile'
 swap_file_cmd = ('swapon', '-p2', swap_file_path)
 
+swap_file_2_path = '/var/swapfile2'
+swap_file_2_cmd = ('swapon', swap_file_2_path)
+
 @tasks.append
 def ensure_swap_file_enabled_if_present():
   if not os.path.isfile(swap_file_path):
@@ -369,6 +372,15 @@ while True:
     break
 '''
 
+platform_profile_path = '/sys/firmware/acpi/platform_profile'
+balanced_performance_cmd = \
+  f'printf balanced-performance > {platform_profile_path}'
+
+small_scripts[f'~root/.local/bin/bp'] = f'''
+#!/bin/sh
+{balanced_performance_cmd}
+'''
+
 small_scripts[f'~{desired_username}/.local/bin/maxfan'] = r'''
 #!/bin/sh
 echo maxfan MaxFan > /proc/$$/comm
@@ -587,6 +599,11 @@ user_shell_shims = {
 'kt': '''
 #!/bin/sh
 QT_QPA_PLATFORM=minimal exec kioclient move "$@" trash:/
+''',
+
+'bp': f'''
+#!/bin/sh
+exec sudo /bin/sh -c '~root/.local/bin/bp'
 ''',
 
 'sdxl': '''
@@ -813,6 +830,7 @@ ALL ALL=(root) NOPASSWD: /usr/bin/python3 -I /root/.local/bin/lincfg -o
 ALL ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
 %wheel ALL=(root) NOPASSWD: /usr/bin/python3 -Im gamepadify.osk --force-wayland
 %wheel ALL=(root) NOPASSWD: /usr/bin/iptables -A ufw-user-input -p tcp -m tcp --dport 9062 -j ACCEPT
+%wheel ALL=(root) NOPASSWD: /bin/sh -c ~root/.local/bin/bp
 
 # %wheel ALL=(root) NOPASSWD: /root/.local/bin/krdp-helper Alice
 '''.lstrip()
@@ -4820,6 +4838,12 @@ mkswap --label zram_swap "$dev"
 swapon -p1 "$dev"
 '''.strip()
 
+@functools.cache
+def get_platform_profiles():
+  _, choices = read_config('/sys/firmware/acpi/platform_profile_choices',
+                           default_contents = '')
+  return set(choices.split())
+
 @lambda f: enabled_services.setdefault('ConsolidatedStartupScript', f)
 def get_desired_consolidated_startup_service():
   desired = ['#!/bin/sh']
@@ -4831,6 +4855,10 @@ def get_desired_consolidated_startup_service():
     desired.append(zram_init_script)
   if which('setterm'):
     desired.append(tty_setup_script)
+  if 'balanced-performance' in get_platform_profiles():
+    desired.append(balanced_performance_cmd)
+  if os.path.isfile(swap_file_2_path):
+    desired.append(shlex.join(swap_file_2_cmd))
   if len(desired) < 2:
     return None
   desired = '\n'.join(desired + ['exit $?'])
@@ -5716,6 +5744,15 @@ def live_soft_reboot():
     needs_restart = restartable.intersection(running)
     if len(needs_restart) > 0:
       run_sysemctl(['restart'] + list(needs_restart), user = u)
+
+@tasks.append
+def restore_power_profile():
+  if 'balanced-performance' not in get_platform_profiles():
+    return
+  p, current = read_config(platform_profile_path)
+  if current.strip() in ('performance', 'balanced'):
+    with open(p, 'w') as f:
+      f.write('balanced-performance')
 
 @tasks.append
 def remove_undesired_packages():
