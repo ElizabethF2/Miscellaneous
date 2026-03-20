@@ -606,6 +606,19 @@ QT_QPA_PLATFORM=minimal exec kioclient move "$@" trash:/
 exec sudo /bin/sh -c '~root/.local/bin/bp'
 ''',
 
+'bpr': f'''
+#!/bin/sh
+i=0
+while [ $i -le 15 ]; do
+  current="$(cat {platform_profile_path})"
+  if [ "$current" = "balanced" ] || [ "$current" = "performance" ] ; then
+    exec sudo /bin/sh -c '~root/.local/bin/bp'
+  fi
+  i=$(expr $i + 1)
+  sleep 1
+done
+''',
+
 'sdxl': '''
 #!/bin/sh
 printf SDXL > /proc/$$/comm
@@ -886,21 +899,23 @@ arch_linux_desired_plasma_vars = '''
 export KWIN_DRM_NO_AMS=1
 '''.lstrip()
 
-def get_desired_plasma_vars():
-  v = common_desired_plasma_vars
+def get_desired_plasma_startup_script():
+  script = common_desired_plasma_vars
   if is_arch_linux():
-    v += arch_linux_desired_plasma_vars
-  return v
+    script += arch_linux_desired_plasma_vars
+  return script
 
 @tasks.append
 def ensure_plasma_vars_are_set_correctly():
   if not which('plasmashell'):
     return
-  desired_plasma_vars = get_desired_plasma_vars()
-  p, plasma_vars = read_config(f'~{desired_username}/.config/plasma-workspace/env/vars.sh',
-                               default_contents = '')
-  if plasma_vars != desired_plasma_vars:
-    write_config(p, desired_plasma_vars, user = desired_username)
+  desired = get_desired_plasma_startup_script()
+  p, current = read_config(
+    f'~{desired_username}/.config/plasma-workspace/env/startup.sh',
+    default_contents = ''
+  )
+  if current != desired:
+    write_config(p, desired, user = desired_username)
 
 local_cloud_drive_name = 'GDrive'
 local_cloud_drive_path = f'~{desired_username}/{local_cloud_drive_name}'
@@ -4774,6 +4789,7 @@ def make_virtuator_symlink():
 
 enabled_services = {}
 disabled_services = {}
+enabled_user_services = {}
 
 consolidated_startup_script_path = '~/.local/bin/consolidated_startup_script'
 
@@ -4801,14 +4817,17 @@ luks_mount_cmd_template = (
 
 luks_partition_script_ending_template = f'''
 mount /dev/mapper/_NAME {pool_mount_point}
-runuser -u{desired_username} -- prbsync auto_sync
-systemctl start Sessen
 '''.strip()
 
 tty_setup_script = f'''
 for i in {' '.join(map(str, range(8)))} ; do
   setterm --term linux --blank 1 > "/dev/tty$i"
 done
+'''.strip()
+
+arch_startup_script = f'''
+runuser -u{desired_username} -- prbsync auto_sync
+systemctl start Sessen
 '''.strip()
 
 @functools.cache
@@ -4838,12 +4857,6 @@ mkswap --label zram_swap "$dev"
 swapon -p1 "$dev"
 '''.strip()
 
-@functools.cache
-def get_platform_profiles():
-  _, choices = read_config('/sys/firmware/acpi/platform_profile_choices',
-                           default_contents = '')
-  return set(choices.split())
-
 @lambda f: enabled_services.setdefault('ConsolidatedStartupScript', f)
 def get_desired_consolidated_startup_service():
   desired = ['#!/bin/sh']
@@ -4851,14 +4864,14 @@ def get_desired_consolidated_startup_service():
     desired.append(luks_script)
   if os.path.isfile(swap_file_path):
     desired.append(shlex.join(swap_file_cmd))
+  if os.path.isfile(swap_file_2_path):
+    desired.append(shlex.join(swap_file_2_cmd))
   if which('zramstart'):
     desired.append(zram_init_script)
   if which('setterm'):
     desired.append(tty_setup_script)
-  if 'balanced-performance' in get_platform_profiles():
-    desired.append(balanced_performance_cmd)
-  if os.path.isfile(swap_file_2_path):
-    desired.append(shlex.join(swap_file_2_cmd))
+  if is_arch_linux():
+    desired.append(arch_startup_script)
   if len(desired) < 2:
     return None
   desired = '\n'.join(desired + ['exit $?'])
@@ -4997,8 +5010,43 @@ def get_desired_gamepadify_service():
       .replace('$ID', get_id())
   )
 
-all_services = enabled_services | disabled_services
-service_root = '/etc/systemd/system'
+@functools.cache
+def get_platform_profiles():
+  _, choices = read_config('/sys/firmware/acpi/platform_profile_choices',
+                           default_contents = '')
+  return set(choices.split())
+
+restore_power_profile_service_template = '''
+[Unit]
+Description=Restore Power Profile
+After=plasma-workspace.target
+Wants=plasma-workspace.target
+
+[Service]
+Type=oneshot
+ExecStart=_BPR
+Restart=no
+
+[Install]
+WantedBy=plasma-workspace.target
+'''.lstrip()
+
+@lambda f: enabled_user_services.setdefault('restore-power-profile', f)
+def get_restore_power_profile_service():
+  if 'balanced-performance' not in get_platform_profiles():
+    return None
+  return (
+    restore_power_profile_service_template
+      .replace('_BPR', fixpath(f'~{desired_username}/.local/bin/bpr'))
+  )
+
+all_system_services = enabled_services | disabled_services
+all_user_services = enabled_user_services
+all_services = all_system_services | all_user_services
+all_enabled_services = enabled_services | enabled_user_services
+
+system_service_root = '/etc/systemd/system'
+user_service_root = f'~{desired_username}/.config/systemd/user'
 
 @tasks.append
 def generate_services():
@@ -5007,13 +5055,19 @@ def generate_services():
   for service_name, get_desired_service in all_services.items():
     if not (desired_service := get_desired_service()):
       continue
-    service_path = os.path.join(service_root, service_name + '.service')
+    if service_name in all_system_services:
+      cmd = [systemctl]
+      root = system_service_root
+    else:
+      root = user_service_root
+      cmd = ['runuser', f'-u{desired_username}', '--', systemctl, '--user']
+    service_path = os.path.join(root, service_name + '.service')
     p, service = read_config(service_path, default_contents = '')
     if service != desired_service:
       write_config(p, desired_service)
-      subprocess.check_call((systemctl, 'daemon-reexec'))
-    if not service and service_name not in disabled_services:
-      subprocess.check_call((systemctl, 'enable', os.path.basename(p)))
+      subprocess.check_call(cmd + ['daemon-reexec'])
+    if not service and service_name in all_enabled_services:
+      subprocess.check_call(cmd + ['enable', os.path.basename(p)])
 
 service_paths_to_remove = (
   '/etc/systemd/system/swap.target.wants/zram-swap.service',
