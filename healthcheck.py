@@ -6,7 +6,7 @@ MIN_CONSOLE_WIDTH = 80
 
 SSH_HOSTNAME_ERROR_STR = 'Could not resolve hostname'
 SSH_HOSTNAME_ERROR_CODE = 255
-DEFAULT_SSH_RETRY_COUNT = 5
+DEFAULT_SSH_RETRY_COUNT = 15
 
 class Context(object): ...
 
