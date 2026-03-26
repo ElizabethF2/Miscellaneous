@@ -1165,9 +1165,9 @@ placementrule=2
 positionrule=4
 ''',
 
-'firefox_pip': '''
+'firefox_pip': r'''
 Description=Firefox PIP
-wmclass=org.mozilla.firefox
+wmclass=\sorg.mozilla.firefox
 wmclassmatch=1
 title=Picture-in-Picture
 titlematch=1
@@ -1176,9 +1176,9 @@ layerrule=2
 types=1
 ''',
 
-'firefox_focus_stealing': '''
+'firefox_focus_stealing': r'''
 Description=Focus Stealing Settings for Firefox
-wmclass=org.mozilla.firefox
+wmclass=\sorg.mozilla.firefox
 wmclasscomplete=true
 wmclassmatch=1
 fsplevelrule=2
@@ -4514,6 +4514,21 @@ flatpak_exceptions = {
   },
   'io.mgba.mGBA': {
     'devices': {'dri', 'input'},
+  },
+  'com.github.AmatCoder.mednaffe': {
+    'sockets': {'pulseaudio'},
+    'devices': {'dri', 'input'},
+    'filesystems': common_gtk_configs,
+  },
+  'net.sourceforge.m64py.M64Py': {
+    'sockets': {'pulseaudio'},
+    'devices': {'dri', 'input'},
+    'filesystems': {'xdg-config/kdeglobals:ro',},
+  },
+  'net.kuribo64.melonDS': {
+    'sockets': {'pulseaudio'},
+    'devices': {'dri', 'input'},
+    'filesystems': {'xdg-config/kdeglobals:ro',},
   },
   'io.github.unknownskl.greenlight': {
     'devices': {'all'},
