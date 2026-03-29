@@ -68,7 +68,7 @@ main_pacman_packages = '''
 '''.split()
 
 temporarily_pinned_pacman_packages = '''
-  swtpm openfortivpn fluxbox qemu-desktop python-lz4 pypy3 zbar tk python-pyperclip
+  swtpm openfortivpn fluxbox qemu-desktop python-lz4 pypy3 zbar tk python-pyperclip kdbg
 '''.split()
 
 container_pacman_packages = '''
