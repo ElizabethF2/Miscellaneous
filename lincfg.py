@@ -2738,7 +2738,7 @@ sessen_port = 9292
 
 @tasks.append
 def configure_ufw():
-  if not (ufw := which('ufw')):
+  if not (ufw := which('ufw')) or is_postmarketos():
     return
   _, conf = read_config(ufw_conf_path, default_contents = '')
   if '\nENABLED=yes' not in conf:
@@ -5616,8 +5616,7 @@ known_issues = {
   # Verify using POC from:
   # https://web.archive.org/web/20241009195241/https://bugs.busybox.net/show_bug.cgi?id=16018
 
-  # 'CVE-2025-5278',
-  # Still not fixed!
+  'CVE-2025-5278',
   # See
   #  https://gitlab.archlinux.org/archlinux/packaging/packages/coreutils/-/blob/main/.SRCINFO?ref_type=heads
   #  https://git.savannah.gnu.org/git/coreutils.git/refs/tags
@@ -5626,8 +5625,7 @@ known_issues = {
 }
 
 known_issues_with_deadlines = {
-  'CVE-2025-46394': '2026-03-29',
-  'CVE-2025-5278': '2026-03-29',
+  'CVE-2025-46394': '2026-09-29',
 }
 
 @tasks.append
@@ -5774,10 +5772,10 @@ restartable_system_services = {
   'rtkit-daemon',
 }
 
+audio_services = {'pipewire-pulse', 'pipewire', 'wireplumber'}
+
 restartable_user_services = {
-  'pipewire-pulse',
-  'pipewire',
-  'wireplumber',
+  *audio_services,
   'plasma-kded6',
   'plasma-plasmashell',
   'plasma-ksmserver',
@@ -5806,7 +5804,7 @@ def live_soft_reboot():
     return
   user_svc = set(restartable_user_services)
   if has_proc_comm(('wineserver', 'firefox-bin', 'msedge')):
-    user_svc -= {'pipewire-pulse', 'pipewire', 'wireplumber'}
+    user_svc -= audio_services
   for u, restartable in ((None, restartable_system_services),
                          (desired_username, user_svc)):
     running = get_running_services(user = u)
