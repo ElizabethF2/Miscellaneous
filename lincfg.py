@@ -4694,7 +4694,7 @@ Name=GeForce Now
 GenericName=Cloud Gaming
 Comment=Cloud Gaming
 Icon=~{desired_username}/.var/app/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/egmafekfmcnknbdlbfbhafbllplmjlhn/Icons/512.png
-Exec=/usr/bin/flatpak run --branch=stable --command=/app/bin/chromium --file-forwarding io.github.ungoogled_software.ungoogled_chromium --app-id=egmafekfmcnknbdlbfbhafbllplmjlhn
+Exec=/usr/bin/flatpak run io.github.ungoogled_software.ungoogled_chromium --app-id=egmafekfmcnknbdlbfbhafbllplmjlhn
 Categories=Game;Network;
 Keywords=cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;
 '''.lstrip(),
@@ -4707,7 +4707,7 @@ Name=Xbox Cloud Gaming
 GenericName=Cloud Gaming
 Comment=Cloud Gaming
 Icon=~{desired_username}/.var/app/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/chcecgcbjkilfgeccdhoeaillkophnhg/Icons/512.png
-Exec=/usr/bin/flatpak run --branch=stable --command=/app/bin/chromium --file-forwarding io.github.ungoogled_software.ungoogled_chromium --app-id=chcecgcbjkilfgeccdhoeaillkophnhg
+Exec=/usr/bin/flatpak run io.github.ungoogled_software.ungoogled_chromium --app-id=chcecgcbjkilfgeccdhoeaillkophnhg
 Categories=Game;Network;
 Keywords=cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;
 '''.lstrip(),
