@@ -2614,7 +2614,7 @@ def ensure_limits_conf_setup():
   p, limits_conf = read_config('/etc/security/limits.conf')
   comment = '# disable core dumps'
   if comment not in limits_conf:
-    write_config(p, limits_conf + '\n\n' + comment +
+    write_config(p, limits_conf + '\n\n' + comment + '\n' +
                     '* soft core 0\n* hard core 0\n')
 
 login_defs_path = '/etc/login.defs'
