@@ -4228,6 +4228,13 @@ common_browser_permissions = {
   },
 }
 
+common_chromium_permissions = common_browser_permissions | {
+  'persistent': {'.pki'},
+  'session_bus_policy': common_browser_permissions['session_bus_policy'] | {
+    'org.mpris.MediaPlayer2.chromium.*': 'own',
+  },
+}
+
 common_gtk_configs = {
   'xdg-config/gtk-3.0:ro',
   'xdg-config/gtk-4.0:ro',
@@ -4406,12 +4413,8 @@ flatpak_exceptions = {
     #'sockets': {'pulseaudio'},
     'devices': {'input',},
   },
-  'io.github.ungoogled_software.ungoogled_chromium': common_browser_permissions | {
-    'persistent': {'.pki'},
-    'session_bus_policy': common_browser_permissions['session_bus_policy'] | {
-      'org.mpris.MediaPlayer2.chromium.*': 'own',
-    },
-  },
+  'io.github.ungoogled_software.ungoogled_chromium': common_chromium_permissions,
+  'com.google.Chrome': common_chromium_permissions,
   'com.microsoft.Edge': common_browser_permissions | {
     'persistent': {'.pki'},
     'session_bus_policy': common_browser_permissions['session_bus_policy'] | {
