@@ -64,7 +64,7 @@ main_pacman_packages = '''
   libappindicator-gtk3 gst-plugin-pipewire power-profiles-daemon ollama-rocm fcitx5 fcitx5-qt fcitx5-configtool
   fcitx5-mozc nethogs bind amdgpu_top nvtop sshfs archiso aspell aspell-en sbctl zip unzip powertop trash-cli kscreen
   kdeplasma-addons ark pacman-contrib python-lsp-server scrcpy bluez bluez-utils bluez-obex vorbis-tools time lshw inxi
-  ntfs-3g usbutils alsa-utils qemu-user-static-binfmt qemu-system-x86 qemu-img edk2-ovmf patch imagemagick
+  ntfs-3g usbutils alsa-utils qemu-user-static-binfmt qemu-system-x86 qemu-img edk2-ovmf patch imagemagick pavucontrol
 '''.split()
 
 temporarily_pinned_pacman_packages = '''
