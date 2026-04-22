@@ -4451,6 +4451,13 @@ flatpak_exceptions = {
     'devices': {'dri', 'input',},
     'filesystems': common_gtk_configs,
   },
+  'net.pcsx2.PCSX2': {
+    'devices': {'dri', 'input',},
+    'filesystems': {'xdg-config/kdeglobals:ro',},
+    'session_bus_policy': {
+      'org.freedesktop.ScreenSaver': 'talk',
+    },
+  },
   'io.sourceforge.pysolfc.PySolFC': {
     'persistent': {'.PySolFC'},
     'sockets': {'x11'},
