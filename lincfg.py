@@ -4380,6 +4380,7 @@ flatpak_exceptions = {
     'devices': {'dri'},
     'filesystems': {
       'xdg-music:ro',
+      'xdg-config/kdeglobals:ro',
     },
     'session_bus_policy': {
       'org.freedesktop.ScreenSaver': 'talk',
