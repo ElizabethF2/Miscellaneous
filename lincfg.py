@@ -90,6 +90,11 @@ personal_postmarketos_packages = '''
   vlc-qt vlc-doc git git-doc lynis lynis-doc py3-qtpy py3-qt6
 '''.split()
 
+fedora_packages = '''
+  util-linux-user wget python perl flatpak busybox micro htop tmux bsd-games rclone aspell doas sshfs clamav
+  python-cryptography nethogs hostname less
+'''.split()
+
 termux_packages = '''
   python python-cryptography micro tmux busybox rclone bsd-games termux-api qemu-system-x86-64-headless qemu-utils man
   lynx wasmer ncdu
@@ -111,6 +116,8 @@ def get_desired_packages(include_aur = False):
     packages = postmarketos_packages
     if not is_parent_pc():
       packages += personal_postmarketos_packages
+  if is_fedora():
+    packages = fedora_packages
   return packages
 
 packages_before_update = []
@@ -128,6 +135,8 @@ def install_or_update_packages():
                    check = True,
                    input = b'Y\n')
     subprocess.run(('apk', 'upgrade'), check = True, input = b'Y\nY\n')
+  if is_fedora():
+    subprocess.check_call(['dnf', 'install', '-y'] + get_desired_packages())
 
 alpine_testing_repo = 'http://dl-cdn.alpinelinux.org/alpine/edge/community'
 alpine_testing_packages = {
@@ -1068,7 +1077,8 @@ plasma_desktop_rc = {
     'values': {
       'dateFormat': 'custom',
       'customDateFormat': 'yyyy/MM/dd',
-      'selectedTimeZones': 'America/Los_Angeles,Local,US/Arizona,US/Eastern',
+      'selectedTimeZones':
+        'America/Los_Angeles,Local,US/Arizona,US/Eastern,Asia/Bangkok',
       'lastSelectedTimezone': 'Local',
     },
   },
@@ -2683,18 +2693,23 @@ def any_desired_values_not_set(cfg):
 
 arch_linux_default_sysctl_cfg_path = '/usr/lib/sysctl.d/50-default.conf'
 alpine_default_sysctl_cfg_path = '/usr/lib/sysctl.d/00-alpine.conf'
+fedora_default_sysctl_cfg_path = '/usr/lib/sysctl.d/99-lincfg.conf'
 
 @tasks.append
 def ensure_sysctl_values_set():
   if is_termux():
     return
+  default_cfg = None
   if is_arch_linux():
     p = arch_linux_default_sysctl_cfg_path
-  if is_postmarketos():
+  elif is_postmarketos():
     p = alpine_default_sysctl_cfg_path
     return # TODO actually implement this - need restore_file_from_package support
-  p, sysctl_cfg = read_config(p)
-  if any_desired_values_not_set(sysctl_cfg):
+  elif is_fedora():
+    p = fedora_default_sysctl_cfg_path
+    default_cfg = ''
+  p, sysctl_cfg = read_config(p, default_contents = default_cfg)
+  if any_desired_values_not_set(sysctl_cfg) and default_cfg is None:
     restore_file_from_package('systemd', p)
     p, sysctl_cfg = read_config(p)
     if any_desired_values_not_set(sysctl_cfg):
@@ -5027,7 +5042,7 @@ Restart=on-failure
 # GatewayPorts yes
 
 @lambda f: disabled_services.setdefault('ssh_reverse_proxy', f)
-def get_desired_gamepadify_service():
+def get_desired_ssh_reverse_proxy_service():
   if not is_parent_pc():
     return None
   return (
@@ -5091,7 +5106,8 @@ def generate_services():
     p, service = read_config(service_path, default_contents = '')
     if service != desired_service:
       write_config(p, desired_service)
-      subprocess.check_call(cmd + ['daemon-reexec'])
+      if not in_container():
+        subprocess.check_call(cmd + ['daemon-reexec'])
     if not service and service_name in all_enabled_services:
       subprocess.check_call(cmd + ['enable', os.path.basename(p)])
 
@@ -5738,6 +5754,8 @@ def run_sysemctl(cmd, user = None, capture_output = False):
   return subprocess.run(cmd, check = True, capture_output = capture_output)
 
 def get_running_services(user = None):
+  if in_container():
+    return set()
   proc = run_sysemctl(['show', '*.service'],
                       user = user,
                       capture_output = True)
@@ -5954,7 +5972,7 @@ def handle_init():
 #? podman run -p 8084:8083 -it docker.io/library/archlinux /bin/sh -c "pacman -Syu --noconfirm nano tmux python ; tmux"
 
 def in_container():
-  os.environ.get('container') is not None
+  return os.environ.get('container') is not None
 
 def alert(*msg, title = 'Alert', width = 80, interactive = True):
   msg = '\n'.join(map(str, msg))
@@ -6076,6 +6094,9 @@ def is_postmarketos():
     get_os_name() == 'Alpine Linux'
   )
 
+def is_fedora():
+  return get_os_name() == 'Fedora Linux'
+
 def is_termux():
   return os.environ.get('TERMUX_VERSION') and which('pkg')
 
@@ -6137,29 +6158,42 @@ def ensure_python_package(src_url, hash, user=None):
     if user:
       subprocess.run(['chown', '-R', user+':', pkgroot])
 
+apk_cache_dir = '/var/cache/apk'
+
 def restore_file_from_package(pkgname, fpath):
-  if not is_arch_linux():
+  if is_arch_linux():
+    subprocess.run(['pacman', '-Sw', '--noconfirm', pkgname])
+    conf = {i[0].strip():i[1].split() for i in
+            map(lambda i: i.split(':'),
+            subprocess.run(['pacman', '-v'], check=False, capture_output=True)
+              .stdout.decode().splitlines())}
+    matching_packages = set()
+    for cache_dir in conf['Cache Dirs']:
+      for i in os.listdir(cache_dir):
+        if not i.endswith('.tar.zst'):
+          continue
+        if '-'.join(i.split('-')[:-3]) == pkgname:
+          matching_packages.add(os.path.join(cache_dir, i))
+    pkgpath = sorted(matching_packages, key=os.path.getmtime)[-1]
+    tdir = tempfile.mkdtemp(prefix='restore_pkg_'+pkgname+'_')
+    tarpath = os.path.join(tdir, 'pkg.tar')
+    subprocess.run(['unzstd', '-d', pkgpath, '-o', tarpath])
+    subprocess.run(['tar', 'xf', tarpath, '-C', tdir])
+    src = os.path.join(tdir, os.path.abspath(fpath)[1:])
+    shutil.move(src, fpath)
+  elif is_postmarketos():
+    raise NotImplementedError()
+    subprocess.run(['apk', 'fetch', pkgname])
+    # NB unfinished
+    for cache_dir in os.listdir(apk_cache_dir):
+      for i in os.listdir(cache_dir):
+        if not i.endswith('.apk'):
+          continue
+        if '-'.join(i.split('-')[:-3]) == pkgname:
+          matching_packages.add(os.path.join(cache_dir, i))
+  else:
     print('ERROR: restore_file_from_package not implemented for this OS yet!!!')
     raise NotImplementedError()
-  subprocess.run(['pacman', '-Sw', '--noconfirm', pkgname])
-  conf = {i[0].strip():i[1].split() for i in
-          map(lambda i: i.split(':'),
-          subprocess.run(['pacman', '-v'], check=False, capture_output=True)
-            .stdout.decode().splitlines())}
-  matching_packages = set()
-  for cache_dir in conf['Cache Dirs']:
-    for i in os.listdir(cache_dir):
-      if not i.endswith('.tar.zst'):
-        continue
-      if '-'.join(i.split('-')[:-3]) == pkgname:
-        matching_packages.add(os.path.join(cache_dir, i))
-  pkgpath = sorted(matching_packages, key=os.path.getmtime)[-1]
-  tdir = tempfile.mkdtemp(prefix='restore_pkg_'+pkgname+'_')
-  tarpath = os.path.join(tdir, 'pkg.tar')
-  subprocess.run(['unzstd', '-d', pkgpath, '-o', tarpath])
-  subprocess.run(['tar', 'xf', tarpath, '-C', tdir])
-  src = os.path.join(tdir, os.path.abspath(fpath)[1:])
-  shutil.move(src, fpath)
 
 def get_installed_flatpaks():
   installed_flatpaks = set()
@@ -6256,6 +6290,12 @@ def get_installed_packages(include_version = True):
     packages = ['-'.join(j[:-2]) + ' ' + '-'.join(j[-2:])
                 for j in (i.split()[0].split('-')
                 for i in proc.stdout.decode().splitlines())]
+  elif is_fedora():
+    out = subprocess.check_output(('rpm', '--query', '--all'))
+    packages = [
+      sp[0] + ' ' + '-'.join(sp[1:]).rpartition('.')[0]
+      for sp in map(lambda i: i.rsplit('-', 2), out.decode().splitlines())
+    ]
   else:
     raise NotImplementedError()
   if not include_version:
