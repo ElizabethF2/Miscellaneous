@@ -134,7 +134,11 @@ def install_or_update_packages():
     subprocess.run(['apk', 'add'] + get_desired_packages(),
                    check = True,
                    input = b'Y\n')
-    subprocess.run(('apk', 'upgrade'), check = True, input = b'Y\nY\n')
+    subprocess.run(
+      ('apk', 'upgrade', '--available'),
+      check = True,
+      input = b'Y\nY\n',
+    )
   if is_fedora():
     subprocess.check_call(['dnf', 'install', '-y'] + get_desired_packages())
 
