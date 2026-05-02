@@ -4447,6 +4447,7 @@ flatpak_exceptions = {
   'dev.stewlab.PortaWar': {
     'sockets': {'x11', 'pulseaudio'},
   },
+  'org.taisei_project.Taisei ': {},
   'io.github.peazip.PeaZip': {
     'sockets': {'x11'},
   },
@@ -4482,6 +4483,8 @@ flatpak_exceptions = {
     'persistent': {'.PySolFC'},
     'sockets': {'x11'},
   },
+  'org.kde.kpat': {},
+  'com.github.avojak.warble': {},
   'gg.tesseract.Tesseract': {
     'persistent': {'.tesseract'},
     'devices': {'all'},
