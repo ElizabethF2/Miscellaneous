@@ -1057,6 +1057,17 @@ rc_values_to_ensure = {
     ('[Daemon]', 'Timeout', '20'),
   ),
 
+  f'~{desired_username}/.config/krunnerrc': (
+    (
+      '[Plugins][Favorites]',
+      'plugins',
+      ','.join((
+        'locations', 'krunner_recentdocuments', 'krunner_sessions',
+        'krunner_powerdevil', 'krunner_services', 'krunner_systemsettings',
+      )),
+    ),
+  ),
+
   f'~{desired_username}/.config/powerdevilrc': (
     ('[AC][Display]', 'DimDisplayWhenIdle', 'False'),
     ('[AC][Display]', 'TurnOffDisplayIdleTimeoutSec', '300'),
@@ -4564,7 +4575,7 @@ flatpak_exceptions = {
     'filesystems': {'xdg-config/kdeglobals:ro',},
   },
   'io.github.unknownskl.greenlight': {
-    'devices': {'all'},
+    'devices': {'dri', 'input'},
     'sockets': {'x11'},
     'shared': {'network'},
     'filesystems': {'/run/udev:ro',},
