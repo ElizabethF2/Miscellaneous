@@ -1762,7 +1762,7 @@ local_path = '~/OneDrive'
 remote_path = 'OneDrive:'
 no_check_updated = true
 # wait_until_stable_before_sync = true
-min_time_between_syncs = 360
+min_time_between_syncs = 60
 auto_sync_filter = [
   '+ Projects/ResultsLogger/**/*.txt',
   '+ Projects/Game_Release_Checker/*.{txt,json,csv}',
