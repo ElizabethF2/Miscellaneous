@@ -2,7 +2,7 @@
 
 import sys, os, subprocess, shlex, shutil, tempfile, re, urllib.request, base64
 import textwrap, inspect, json, stat, socket, hashlib, configparser, site, glob
-import pprint, errno, time, functools, pwd, fnmatch
+import pprint, errno, time, functools, pwd, fnmatch, signal
 
 desired_username = 'Liz'
 desired_wheel_users = ('Liz',)
@@ -11,6 +11,10 @@ home_root = os.path.abspath('/home')
 desired_home = os.path.join(home_root, desired_username)
 
 tasks = []
+prereqs = {}
+def prereq_task(*p):
+  return lambda f: (tasks.append(f), prereqs.setdefault(f, p))
+
 @tasks.append
 def ensure_user_exists():
   if is_termux():
@@ -857,6 +861,8 @@ ALL ALL=(root) NOPASSWD: /usr/bin/emergency-signed-run
 %wheel ALL=(root) NOPASSWD: /usr/bin/python3 -Im gamepadify.osk --force-wayland
 %wheel ALL=(root) NOPASSWD: /usr/bin/iptables -A ufw-user-input -p tcp -m tcp --dport 9062 -j ACCEPT
 %wheel ALL=(root) NOPASSWD: /bin/sh -c ~root/.local/bin/bp
+%wheel ALL=(root) NOPASSWD: /usr/bin/btrfs -v scrub start -B /
+%wheel ALL=(root) NOPASSWD: /usr/bin/btrfs -v scrub start -B /srv/pool
 
 # %wheel ALL=(root) NOPASSWD: /root/.local/bin/krdp-helper Alice
 '''.lstrip()
@@ -4343,7 +4349,7 @@ flatpak_exceptions = {
       # 'xdg-music:ro',
       steam_pool_path,
       os.path.join(sftp_pool_mount_point, 'Games', 'Steam'),
-      f'~{desired_username}/GDrive/Documents/Saves/Symlinked/Steam',
+      f'~{desired_username}/GDrive/Games/PC/Saves/Symlinked/Steam',
     },
     'session_bus_policy': {
       'com.steampowered.*': 'own',
@@ -4461,6 +4467,7 @@ flatpak_exceptions = {
   'org.taisei_project.Taisei ': {},
   'io.github.peazip.PeaZip': {
     'sockets': {'x11'},
+    'filesystems': {'xdg-config/kdeglobals:ro',},
   },
   'org.gnome.Boxes': {
     'shared': {'network'},
@@ -4494,11 +4501,19 @@ flatpak_exceptions = {
     'persistent': {'.PySolFC'},
     'sockets': {'x11'},
   },
-  'org.kde.kpat': {},
+  'org.kde.kpat': {
+    'filesystems': {'xdg-config/kdeglobals:ro',},
+  },
   'com.github.avojak.warble': {},
   'gg.tesseract.Tesseract': {
     'persistent': {'.tesseract'},
     'devices': {'all'},
+  },
+  'org.kde.palapeli': {
+    'filesystems': {
+      'xdg-config/kdeglobals:ro',
+      f'~{desired_username}/GDrive/Games/PC/Saves/Symlinked/Palapeli',
+    },
   },
   'net.redeclipse.RedEclipse': {
     'persistent': {'.redeclipse'},
@@ -5244,6 +5259,52 @@ def ensure_launcher_icon_is_up_to_date():
                mode = 'wb',
                user = desired_username)
 
+steam_roots = {
+  f'~{desired_username}/.var/app/com.valvesoftware.Steam/.local/share/Steam',
+  os.path.join(pool_mount_point, 'SteamLibrary/SteamLibrary/'),
+}
+
+steam_compat_paths = {
+  '2096610': 'Saved Games/Crysis3Remastered',
+  '468100': 'AppData/LocalLow/Zordix AB/AquaMotoRacingUtopia',
+  '750200': 'AppData/Local/Away',
+  '907380': 'AppData/LocalLow/CurtelGames/TheBalladSinger',
+  '71230': 'Documents/SEGA/Dreamcast Collection/Crazy Taxi',
+  '1062140': 'AppData/Local/Garden_Story__for_Blue_Build_',
+  '1286120': 'AppData/LocalLow/Bad Habit/MarbleItUp',
+}
+
+palapeli_root = f'~{desired_username}/.var/app/org.kde.palapeli'
+symlinks_to_check = [
+  f'{palapeli_root}/data/palapeli/collection/*.save',
+  f'{palapeli_root}/config/palapelirc',
+]
+
+for game_id, path in steam_compat_paths.items():
+  for root in steam_roots:
+    symlinks_to_check.append(os.path.join(
+      root, 'steamapps', 'compatdata', game_id, 'pfx', 'drive_c', 'users', 'steamuser', path,
+    ))
+
+local_cloud_roots = {
+  local_cloud_drive_path,
+  f'~{desired_username}/OneDrive',
+}
+
+@tasks.append
+def check_symlinks():
+  pre = [i + os.path.sep for i in map(fixpath, local_cloud_roots)]
+  for link_pattern in symlinks_to_check:
+    for link in glob.iglob(fixpath(link_pattern)):
+      try:
+        target = os.readlink(link)
+        if not any((target.startswith(i) for i in pre)):
+          alert(f'Bad symlink target: {link}')
+        # else:
+        #   print('DBG-OK', link)
+      except OSError:
+        alert(f'Not a symlink: {link}')
+
 @tasks.append
 def update_app_cache():
   if not (kbuildsycoca := which('kbuildsycoca6')):
@@ -5253,29 +5314,30 @@ def update_app_cache():
                          kbuildsycoca, '--noincremental'),
                         env = env)
 
-only_enable_baloo_temporarily = False
+only_enable_baloo_temporarily = True
 
 @tasks.append
 def update_file_index():
   if not (balooctl := which('balooctl6')):
     return
-  subprocess.check_call(('runuser', '-u'+desired_username, '--',
-                         balooctl, 'check'))
-  subprocess.check_call(('runuser', '-u'+desired_username, '--',
-                         balooctl, 'enable'))
+  try:
+    mtime = os.path.getmtime(fixpath(f'~{desired_username}/.local/share/baloo/index'))
+  except FileNotFoundError:
+    mtime = 0
+  if (cached_time() - mtime) < A_WEEK:
+    return
+  pfx = ('runuser', '-u'+desired_username, '--')
+  subprocess.check_call((*pfx, balooctl, 'enable'))
+  subprocess.check_call((*pfx, balooctl, 'check'))
   if only_enable_baloo_temporarily:
-    last_count = None
-    while True:
-      out = subprocess.check_output(('runuser', '-u'+desired_username, '--',
-                                    balooctl, 'status'))
-      match = re.search(r'Total files indexed:\s*(\d+)', out.decode())
-      count = match.group(1)
-      if count == last_count:
-        break
-      last_count = count
-      time.sleep(3)
-    subprocess.check_call(('runuser', '-u'+desired_username, '--',
-                           balooctl, 'disable'))
+    proc = subprocess.Popen((*pfx, balooctl, 'monitor'),
+                            stdout = subprocess.PIPE,
+                            stderr = subprocess.STDOUT)
+    while (line := proc.stdout.readline().strip().decode()) != 'Idle':
+      print('  Monitor: ' + repr(line))
+    proc.send_signal(signal.SIGINT)
+    subprocess.check_call((*pfx, balooctl, 'disable'))
+    proc.wait()
 
 # windows_boot_manager_killer_service = """
 # [Unit]

@@ -12,12 +12,14 @@ ONE_HOUR = 60*60
 ONE_DAY = 24*ONE_HOUR
 
 PERIODS = {
-  'lincfg_online': 26 * ONE_HOUR,
+  'lincfg_online': 20 * ONE_HOUR,
   'game_release_checker': 16 * ONE_HOUR,
   'price_checker_full': 5 * ONE_DAY,
   'price_checker_fast_insane': 16 * ONE_HOUR,
   'healthcheck': 7 * ONE_DAY,
   'git_mirror_sync': 3 * ONE_DAY,
+  'scrub_root': 30 * ONE_DAY,
+  'scrub_pool': 30 * ONE_DAY,
 }
 
 COMM_NAMES = {
@@ -45,6 +47,15 @@ def apply_enqueue_rules(ctx):
 
   if not is_remote:
     enqueue_if_due(ctx, 'git_mirror_sync', 'git_mirror_sync --sync-all')
+
+  try:
+    ls = os.listdir('/sys/fs/btrfs')
+  except FileNotFoundError:
+    ls = []
+  if len(ls) > 1:
+    enqueue_if_due(ctx, 'scrub_root', 'sudo btrfs -v scrub start -B /')
+    if os.path.ismount('/srv/pool'):
+      enqueue_if_due(ctx, 'scrub_pool', 'sudo btrfs -v scrub start -B /srv/pool')
 
   if is_remote:
     ctx['pending_actions'].append(('prbsync_sync', 'prbsync auto'))
