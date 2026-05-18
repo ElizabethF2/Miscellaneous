@@ -636,6 +636,12 @@ while [ $i -le 15 ]; do
 done
 ''',
 
+'pa': f'''
+#!/bin/sh
+echo "pa:$1" > /proc/$$/comm
+podman start -ai "$@"
+''',
+
 'sdxl': '''
 #!/bin/sh
 printf SDXL > /proc/$$/comm
@@ -982,6 +988,8 @@ rc_values_to_ensure = {
     ('[Effect-blur]', 'NoiseStrength', '1'),
     ('[TabBox]', 'LayoutName', 'coverswitch'),
     ('[Effect-zoom]', 'MouseTracking', '1'), # center magnifier
+    ('[Effect-hidecursor]', 'InactivityDuration', '15'),
+    ('[Effect-hidecursor]', 'HideOnTyping', 'false'),
     (
       '[Wayland]',
       'InputMethod[$e]',
@@ -4162,7 +4170,9 @@ pool_paths_shared_with_flatpaks = (
   bottles_pool_path := os.path.join(pool_mount_point, 'BottlesDriveP'),
 )
 
-bottles_bottles_path = f'~{desired_username}/.var/app/com.usebottles.bottles/data/bottles/bottles'
+flatpak_home = f'~{desired_username}/.var/app'
+
+bottles_bottles_path = f'{flatpak_home}/com.usebottles.bottles/data/bottles/bottles'
 bottles_to_map_pool = ('Quaternary',)
 
 @tasks.append
@@ -4334,7 +4344,7 @@ flatpak_exceptions = {
     'filesystems': common_gtk_configs | {
       bottles_pool_path,
       os.path.join(sftp_pool_mount_point, 'Games', 'Bottles'),
-      f'~{desired_username}/GDrive/Documents/Saves/Symlinked/Bottles',
+      f'{local_cloud_drive_path}/Games/Saves/Symlinked/Bottles',
     },
   },
   'com.valvesoftware.Steam': {
@@ -4449,6 +4459,9 @@ flatpak_exceptions = {
   'com.github.k4zmu2a.spacecadetpinball': {
     #'sockets': {'pulseaudio'},
     'devices': {'input',},
+    'filesystems': {
+      f'~{desired_username}/GDrive/Games/PC/Saves/Symlinked/SpaceCadetPinball',
+    },
   },
   'io.github.ungoogled_software.ungoogled_chromium': common_chromium_permissions,
   'com.google.Chrome': common_chromium_permissions,
@@ -4486,9 +4499,13 @@ flatpak_exceptions = {
   'org.sqlitebrowser.sqlitebrowser': {},
   'org.kde.kdiff3': {},
   'org.DolphinEmu.dolphin-emu': {
+    'shared': {'network'},
     'sockets': {'x11'},
     'devices': {'dri', 'input',},
-    'filesystems': common_gtk_configs,
+    'filesystems': common_gtk_configs | {
+      f'~{desired_username}/Games/GameCube:ro',
+      'xdg-config/kdeglobals:ro',
+    },
   },
   'net.pcsx2.PCSX2': {
     'devices': {'dri', 'input',},
@@ -4504,7 +4521,11 @@ flatpak_exceptions = {
   'org.kde.kpat': {
     'filesystems': {'xdg-config/kdeglobals:ro',},
   },
-  'com.github.avojak.warble': {},
+  'com.github.avojak.warble': {
+    'filesystems': {
+      f'~{desired_username}/GDrive/Games/PC/Saves/Symlinked/Warble',
+    },
+  },
   'gg.tesseract.Tesseract': {
     'persistent': {'.tesseract'},
     'devices': {'all'},
@@ -4583,6 +4604,10 @@ flatpak_exceptions = {
     'sockets': {'pulseaudio'},
     'devices': {'dri', 'input'},
     'filesystems': {'xdg-config/kdeglobals:ro',},
+  },
+  'dev.ares.ares': {
+    'devices': {'dri', 'input'},
+    'sockets': {'x11'},
   },
   'net.kuribo64.melonDS': {
     'sockets': {'pulseaudio'},
@@ -4728,8 +4753,8 @@ CHROMIUM_FLAGS = """
 """
 
 CHROMIUM_FLAG_PATHS = [
-  f'~{desired_username}/.var/app/io.github.ungoogled_software.ungoogled_chromium/config/chromium-flags.conf',
-  f'~{desired_username}/.var/app/com.microsoft.Edge/config/edge-flags.conf',
+  f'{flatpak_home}/io.github.ungoogled_software.ungoogled_chromium/config/chromium-flags.conf',
+  f'{flatpak_home}/com.microsoft.Edge/config/edge-flags.conf',
 ]
 
 @tasks.append
@@ -4752,7 +4777,7 @@ Version=1.0
 Name=GeForce Now
 GenericName=Cloud Gaming
 Comment=Cloud Gaming
-Icon=~{desired_username}/.var/app/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/egmafekfmcnknbdlbfbhafbllplmjlhn/Icons/512.png
+Icon={flatpak_home}/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/egmafekfmcnknbdlbfbhafbllplmjlhn/Icons/512.png
 Exec=/usr/bin/flatpak run io.github.ungoogled_software.ungoogled_chromium --app-id=egmafekfmcnknbdlbfbhafbllplmjlhn
 Categories=Game;Network;
 Keywords=cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;
@@ -4765,7 +4790,7 @@ Version=1.0
 Name=Xbox Cloud Gaming
 GenericName=Cloud Gaming
 Comment=Cloud Gaming
-Icon=~{desired_username}/.var/app/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/chcecgcbjkilfgeccdhoeaillkophnhg/Icons/512.png
+Icon={flatpak_home}/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/chcecgcbjkilfgeccdhoeaillkophnhg/Icons/512.png
 Exec=/usr/bin/flatpak run io.github.ungoogled_software.ungoogled_chromium --app-id=chcecgcbjkilfgeccdhoeaillkophnhg
 Categories=Game;Network;
 Keywords=cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;
@@ -5260,31 +5285,39 @@ def ensure_launcher_icon_is_up_to_date():
                user = desired_username)
 
 steam_roots = {
-  f'~{desired_username}/.var/app/com.valvesoftware.Steam/.local/share/Steam',
+  f'{flatpak_home}/com.valvesoftware.Steam/.local/share/Steam',
   os.path.join(pool_mount_point, 'SteamLibrary/SteamLibrary/'),
 }
 
 steam_compat_paths = {
-  '2096610': 'Saved Games/Crysis3Remastered',
-  '468100': 'AppData/LocalLow/Zordix AB/AquaMotoRacingUtopia',
-  '750200': 'AppData/Local/Away',
-  '907380': 'AppData/LocalLow/CurtelGames/TheBalladSinger',
-  '71230': 'Documents/SEGA/Dreamcast Collection/Crazy Taxi',
-  '1062140': 'AppData/Local/Garden_Story__for_Blue_Build_',
-  '1286120': 'AppData/LocalLow/Bad Habit/MarbleItUp',
+  '2096610': [
+    'Saved Games/Crysis3Remastered/SaveGames',
+    'Saved Games/Crysis3Remastered/Profiles',
+    'Saved Games/Crysis3Remastered/game.cfg',
+  ],
+  '468100': ['AppData/LocalLow/Zordix AB/AquaMotoRacingUtopia'],
+  '750200': ['AppData/Local/Away'],
+  '907380': ['AppData/LocalLow/CurtelGames/TheBalladSinger'],
+  '71230': ['Documents/SEGA/Dreamcast Collection/Crazy Taxi'],
+  '1062140': ['AppData/Local/Garden_Story__for_Blue_Build_'],
+  '1286120': ['AppData/LocalLow/Bad Habit/MarbleItUp'],
 }
 
-palapeli_root = f'~{desired_username}/.var/app/org.kde.palapeli'
+palapeli_root = f'{flatpak_home}/org.kde.palapeli'
 symlinks_to_check = [
   f'{palapeli_root}/data/palapeli/collection/*.save',
   f'{palapeli_root}/config/palapelirc',
+  f'{flatpak_home}/com.github.avojak.warble/config/glib-2.0/settings',
+  f'{flatpak_home}/com.github.k4zmu2a.spacecadetpinball/data/SpaceCadetPinball',
+  f'{flatpak_home}/com.usebottles.bottles/data/bottles/bottles/*/drive_c/users/*/Documents/My Games/Mercenaries 2',
 ]
 
-for game_id, path in steam_compat_paths.items():
-  for root in steam_roots:
-    symlinks_to_check.append(os.path.join(
-      root, 'steamapps', 'compatdata', game_id, 'pfx', 'drive_c', 'users', 'steamuser', path,
-    ))
+for game_id, paths in steam_compat_paths.items():
+  for path in paths:
+    for root in steam_roots:
+      symlinks_to_check.append(os.path.join(
+        root, 'steamapps', 'compatdata', game_id, 'pfx', 'drive_c', 'users', 'steamuser', path,
+      ))
 
 local_cloud_roots = {
   local_cloud_drive_path,
@@ -5292,7 +5325,7 @@ local_cloud_roots = {
 }
 
 @tasks.append
-def check_symlinks():
+def check_cloud_symlinks():
   pre = [i + os.path.sep for i in map(fixpath, local_cloud_roots)]
   for link_pattern in symlinks_to_check:
     for link in glob.iglob(fixpath(link_pattern)):
@@ -5300,8 +5333,8 @@ def check_symlinks():
         target = os.readlink(link)
         if not any((target.startswith(i) for i in pre)):
           alert(f'Bad symlink target: {link}')
-        # else:
-        #   print('DBG-OK', link)
+        elif flags('fpoverrides'):
+          print('  OK', link)
       except OSError:
         alert(f'Not a symlink: {link}')
 

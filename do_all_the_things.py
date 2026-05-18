@@ -12,7 +12,7 @@ ONE_HOUR = 60*60
 ONE_DAY = 24*ONE_HOUR
 
 PERIODS = {
-  'lincfg_online': 20 * ONE_HOUR,
+  'lincfg_online': 18 * ONE_HOUR,
   'game_release_checker': 16 * ONE_HOUR,
   'price_checker_full': 5 * ONE_DAY,
   'price_checker_fast_insane': 16 * ONE_HOUR,
