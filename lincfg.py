@@ -642,6 +642,16 @@ echo "pa:$1" > /proc/$$/comm
 podman start -ai "$@"
 ''',
 
+'pe': f'''
+#!/bin/sh
+echo "pe:$1" > /proc/$$/comm
+if [ "x$2" = "x" ] ; then
+  podman exec -it "$@" sh
+else
+  podman exec -it "$@"
+fi
+''',
+
 'sdxl': '''
 #!/bin/sh
 printf SDXL > /proc/$$/comm
@@ -988,7 +998,7 @@ rc_values_to_ensure = {
     ('[Effect-blur]', 'NoiseStrength', '1'),
     ('[TabBox]', 'LayoutName', 'coverswitch'),
     ('[Effect-zoom]', 'MouseTracking', '1'), # center magnifier
-    ('[Effect-hidecursor]', 'InactivityDuration', '15'),
+    ('[Effect-hidecursor]', 'InactivityDuration', '8'),
     ('[Effect-hidecursor]', 'HideOnTyping', 'false'),
     (
       '[Wayland]',
@@ -1106,8 +1116,10 @@ plasma_desktop_rc = {
     'values': {
       'dateFormat': 'custom',
       'customDateFormat': 'yyyy/MM/dd',
-      'selectedTimeZones':
-        'America/Los_Angeles,Local,US/Arizona,US/Eastern,Asia/Bangkok',
+      'selectedTimeZones': ','.join((
+        'America/Los_Angeles', 'Local', 'US/Arizona', 'US/Eastern',
+        'Asia/Bangkok', 'Asia/Hong_Kong',
+      )),
       'lastSelectedTimezone': 'Local',
     },
   },
@@ -1817,6 +1829,11 @@ subvolume = false
 [syncable_paths.GDriveProjects]
 local_path = '~/GDrive/Projects'
 remote_path = 'gdrive:/Projects'
+subvolume = false
+
+[syncable_paths.GDriveGames]
+local_path = '~/GDrive/Games'
+remote_path = 'gdrive:/Games'
 subvolume = false
 
 [syncable_paths.GDriveTempws]
@@ -4514,6 +4531,9 @@ flatpak_exceptions = {
       'org.freedesktop.ScreenSaver': 'talk',
     },
   },
+  'net.rpcs3.RPCS3': {
+    'devices': {'dri', 'input',},
+  },
   'io.sourceforge.pysolfc.PySolFC': {
     'persistent': {'.PySolFC'},
     'sockets': {'x11'},
@@ -4560,6 +4580,9 @@ flatpak_exceptions = {
   'org.luanti.luanti': {
     'sockets': {'x11'},
     'shared': {'network'},
+    'filesystems': {
+      f'~{desired_username}/GDrive/Games/PC/Saves/Symlinked/Luanti',
+    },
   },
   'org.gnome.NetworkDisplays': {
     'shared': {'network'},
@@ -5309,6 +5332,7 @@ symlinks_to_check = [
   f'{palapeli_root}/config/palapelirc',
   f'{flatpak_home}/com.github.avojak.warble/config/glib-2.0/settings',
   f'{flatpak_home}/com.github.k4zmu2a.spacecadetpinball/data/SpaceCadetPinball',
+  f'{flatpak_home}/org.luanti.luanti/.minetest/worlds',
   f'{flatpak_home}/com.usebottles.bottles/data/bottles/bottles/*/drive_c/users/*/Documents/My Games/Mercenaries 2',
 ]
 
