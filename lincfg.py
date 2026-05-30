@@ -4279,6 +4279,7 @@ common_browser_permissions = {
   'filesystems': {
     '/run/.heim_org.h5l.kcm-socket',
     '/run/udev:ro',
+    'xdg-run/pipewire-0',
   },
   'session_bus_policy': {
     'org.freedesktop.Notifications': 'talk',
@@ -4644,7 +4645,7 @@ flatpak_exceptions = {
     'filesystems': {'/run/udev:ro',},
   },
   'io.github.streetpea.Chiaki4deck': {
-    'devices': {'dri', 'input'},
+    'devices': {'dri', 'input', 'all'},
     'filesystems': {'xdg-run/pipewire-0'},
     'shared': {'network'},
     'session_bus_policy': {
