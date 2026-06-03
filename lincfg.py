@@ -4659,6 +4659,10 @@ flatpak_exceptions = {
     'shared': {'network'},
     'persistent': {'.thunderbird'},
   },
+  'org.mozilla.thunderbird_esr': {
+    'shared': {'network'},
+    'persistent': {'.thunderbird'},
+  },
   'org.kde.kdenlive': {
     'devices': {'all'},
   },
@@ -5787,6 +5791,11 @@ known_issues = {
   #  https://git.savannah.gnu.org/git/coreutils.git/refs/tags
   #  https://cgit.git.savannah.gnu.org/cgit/coreutils.git/commit/?id=8c9602e3a145e9596dc1a63c6ed67865814b6633
   #  https://cgit.git.savannah.gnu.org/cgit/coreutils.git/tree/src/sort.c?id=f8f3e758110c31ed20a682841c86e54ddeb9f449
+
+  'CVE-2021-43519',
+  'CVE-2014-5461',
+  # DOS only
+  # See https://security.archlinux.org/AVG-1302
 }
 
 known_issues_with_deadlines = {
