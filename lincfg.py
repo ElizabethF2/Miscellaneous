@@ -994,6 +994,7 @@ rc_values_to_ensure = {
   f'~{desired_username}/.config/kwinrc': (
     ('[Plugins]', 'magiclampEnabled', 'true'),
     ('[Plugins]', 'blurEnabled', 'true'),
+    ('[Plugins]', 'hidecursorEnabled', 'true'),
     ('[Effect-blur]', 'BlurStrength', '2'),
     ('[Effect-blur]', 'NoiseStrength', '1'),
     ('[TabBox]', 'LayoutName', 'coverswitch'),
@@ -1218,8 +1219,8 @@ positionrule=4
 
 'firefox_pip': r'''
 Description=Firefox PIP
-wmclass=\sorg.mozilla.firefox
-wmclassmatch=1
+wmclass=^(\\s*org\\.mozilla\\.)?firefox$
+wmclassmatch=3
 title=Picture-in-Picture
 titlematch=1
 layer=osd
@@ -1229,9 +1230,9 @@ types=1
 
 'firefox_focus_stealing': r'''
 Description=Focus Stealing Settings for Firefox
-wmclass=\sorg.mozilla.firefox
+wmclass=^(\\s*org\\.mozilla\\.)?firefox$
 wmclasscomplete=true
-wmclassmatch=1
+wmclassmatch=3
 fsplevelrule=2
 '''
 }
