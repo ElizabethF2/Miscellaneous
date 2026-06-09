@@ -4515,6 +4515,18 @@ flatpak_exceptions = {
   'org.kde.kcharselect': {
     'filesystems': {'xdg-config/kdeglobals:ro',},
   },
+  'org.kde.kclock': {
+    'sockets': {'pulseaudio'},
+    'filesystems': {
+      'xdg-config/kdeglobals:ro',
+    },
+    'session_bus_policy': {
+      'org.freedesktop.Notifications': 'talk',
+      'org.kde.Solid.PowerManagement': 'talk',
+      'org.kde.kconfig.notify': 'talk',
+      'org.kde.kclockd': 'own',
+    },
+  },
   'org.sqlitebrowser.sqlitebrowser': {},
   'org.kde.kdiff3': {},
   'org.DolphinEmu.dolphin-emu': {
