@@ -198,7 +198,7 @@ def sync_changes_from_source(ctx, r):
     destination_snapshot[relpath] = destination_metadata
   for relpath in sorted(destination_snapshot.keys(), key = len, reverse = True):
     if relpath not in source_snapshot:
-      git(ctx, r.destination, 'rm', relpath)
+      git(ctx, r.destination, 'rm', '-f', relpath)
       repo_modified = True
       destination_snapshot.pop(relpath, 0)
   return repo_modified, destination_snapshot

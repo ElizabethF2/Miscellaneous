@@ -846,6 +846,17 @@ def ensure_root_bashrc_is_correct():
   if root_bashrc != get_desired_root_bashrc():
     write_config(p, get_desired_root_bashrc())
 
+@tasks.append
+def ensure_pacman_is_configured():
+  if not is_arch_linux():
+    return
+  p, old = read_config('/etc/pacman.conf')
+  if 'ILoveCandy' in old:
+    return
+  if '[options]' not in old:
+    raise Exception('Missing options section')
+  write_config(p, old.replace('[options]', '[options]\nILoveCandy\n'))
+
 auto_tpm_encrypt_path = '/root/.local/bin/auto_tpm_encrypt'
 
 sudo_drop_in = f'''
@@ -2947,6 +2958,12 @@ github_repos_used_by_aur_packages = {
   # 'rustdesk': 'rustdesk/rustdesk',
 }
 
+LATEST_MALDET_VERSION = '2.0.1'
+
+aur_versions = {
+  'maldet': LATEST_MALDET_VERSION,
+}
+
 out_of_date_aur_packages = {}
 
 @tasks.append
@@ -2957,9 +2974,9 @@ def check_for_out_of_date_aur_packages():
     for package, repo in github_repos_used_by_aur_packages.items():
       if not which(package):
         continue
-      installed_version = re.findall(package+r'\s+(.+)', subprocess.check_output(['pacman', '-Q']).decode())[0]
+      installed_version = aur_versions[package]
       url = GITHUB_BASE_URL + repo + GITHUB_RELEASES_PATH
-      latest_version = re.findall('/tree/(.+?)[\'|"]',
+      latest_version = re.findall('/tree/v?(.+?)[\'|"]',
                                   urllib.request.urlopen(url)
                                     .read().decode())[0].replace('-', '.')
       current_version = installed_version.split('-')[0]
@@ -3275,8 +3292,6 @@ cargo build --frozen --release --bin rustdesk --features flutter,hwcodec
 cd ~/rustdesk-*/target/release
 '''
 
-LATEST_MALDET_VERSION = '1.6.6'
-
 MALDET_SETUP_SCRIPT = r'''
 # Reference: https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=maldet
 # Alpine Dependencies: coreutils, bind-tools
@@ -3288,81 +3303,86 @@ chown nobody: "$WS"
 (
 cat <<EOF
 cd $WS
-wget -O main.tar.gz https://github.com/rfxn/linux-malware-detect/archive/1.6.6.1.tar.gz
+wget -O main.tar.gz https://github.com/rfxn/linux-malware-detect/releases/download/v2.0.1/maldet-2.0.1.tar.gz
 b2sum main* | \
-  grep 67fb4daeb10e898f67f9dec6d8033c6f9ebabd4041cc55eb0e16cc5d9291a8e3114aff9444df31def6314c5add2dfb6dac7a7f3ed64ec8477ceb8ce6feed8ced || \
+  grep a6c3060963830a6b5d83321b3a292a74b22e78d8dcf69bf78cb2f4fd849b12acb4b8a524c90085531383cc5ef8cc175e6d7513d8ec186b00905ef084e72c8bcf || \
   exit 1
 tar xzf main*
 EOF
 ) | runuser -u nobody sh || exit $?
 
-cd $WS/linux-malware-detect-*
+cd $WS/maldet-*
 
 sed -i "files/maldet" \
-    -e "s|^inspath='/usr/local/maldetect'|inspath='/usr/share/maldet'|" \
+    -e "s|inspath='/usr/local/maldetect'|inspath='/usr/share/maldet'|" \
     -e 's|^intcnf="\$inspath/internals/internals.conf"|intcnf="/etc/maldet/internals.conf"|'
 
 sed -i "files/hookscan.sh" \
-    -e "s|^inspath='/usr/local/maldetect'|inspath=\"/usr/share/maldet\"|" \
-    -e 's|^intcnf="$inspath/internals/internals.conf"|intcnf="/etc/maldet/internals.conf"|' \
-    -e 's|hookcnf="$inspath/conf.maldet.hookscan"|hookcnf="/etc/maldet/hookscan.conf"|' \
-    -e 's|$inspath/maldet|/usr/bin/maldet|' \
-    -e 's|tmpdir=/var/tmp|tmpdir=/var/lib/maldet/tmp|'
+     -e 's|inspath="\${inspath:-/usr/local/maldetect}"|inspath="${inspath:-/usr/share/maldet}"|'
+
+cp "files/conf.maldet.hookscan.default" "files/conf.maldet.hookscan"
 
 sed -i "files/conf.maldet" \
-     -e "s|/usr/local/maldetect/tmp|/var/lib/maldet/tmp|" \
-     -e "s|/usr/local/maldetect/monitor_paths|/etc/maldet/monitor_paths|"
+    -e "s|/usr/local/maldetect/monitor_paths.extra|/etc/maldet/monitor_paths.extra|" \
+    -e "s|/usr/local/maldetect/monitor_paths|/etc/maldet/monitor_paths|"
 
 sed -i "files/ignore_inotify" \
-    -e 's|\^/usr/local/maldetect\*|\^/var/lib/maldetect\*\n\^/usr/share/maldetect\*|'
+    -e 's|\^/usr/local/maldetect\*|\^/var/lib/maldet\*\n\^/usr/share/maldet\*|'
 
 sed -i "files/ignore_paths" \
     -e "s|/usr/local/maldetect|/var/lib/maldet\n/usr/share/maldet|" \
     -e "s|/usr/local/sbin/maldet|/usr/bin/maldet|"
 
-sed -i "files/internals/functions" \
-    -e 's|$inspath/maldet|/usr/bin/maldet|'
+sed -i "files/internals/ignore_inotify.defaults" \
+    -e "s|/usr/local/maldetect/|/var/lib/maldet/\n/usr/share/maldet/|" \
+    -e "s|/usr/local/sbin/maldet|/usr/bin/maldet|"
 
-sed -i "files/internals/hexfifo.pl" \
-    -e "s|/usr/local/maldetect/internals|/usr/share/maldetect/internals|"
+sed -i "files/internals/lmd_alert.sh" \
+    -e "s|/usr/local/sbin/maldet|/usr/bin/maldet|"
 
 sed -i "files/internals/importconf" \
-    -e "s|/usr/local/maldetect/conf.maldet|/etc/maldet/maldet.conf|" \
-    -e "s|/usr/local/maldetect/tmp|/var/lib/maldet/tmp|" \
-    -e "s|/usr/local/maldetect/monitor_paths|/etc/maldet/monitor_paths|"
+    -e 's|INSTALL_PATH="\${INSTALL_PATH:-/usr/local/maldetect}"|INSTALL_PATH="${INSTALL_PATH:-/usr/share/maldet}"|'
 
 sed -i "files/internals/internals.conf" \
-    -e 's|^logdir="\$inspath/logs"|logdir="/var/log/maldet"|' \
-    -e 's|^inspath=/usr/local/maldetect|inspath="/usr/share/maldet"|' \
-    -e 's|^intcnf="$inspath/internals/internals.conf"|intcnf="/etc/maldet/internals.conf"|' \
+    -e 's|^inspath="\${inspath:-/usr/local/maldetect}"|inspath="${inspath:-/usr/share/maldet}"|' \
+    -e 's|^intcnf="\$inspath/internals/internals.conf"|intcnf="/etc/maldet/internals.conf"|' \
     -e 's|^confpath="\$inspath"|confpath="/etc/maldet"|' \
     -e 's|^cnffile="conf.maldet"|cnffile="maldet.conf"|' \
     -e 's|^varlibpath="\$inspath"|varlibpath="/var/lib/maldet"|' \
-    -e 's|^tmpdir="\$inspath/tmp"|tmpdir="$varlibpath/tmp"|' \
-    -e 's|^inotify_log="\$inspath/logs/inotify_log"|inotify_log="$logdir/inotify_log"|'
+    -e 's|^tmpdir="\$inspath/tmp"|tmpdir="$varlibpath/tmp"|'
 
-sed -i "files/internals/scan.etpl" \
-    -e "s|/usr/local/sbin/maldet|/usr/bin/maldet|"
+sed -i "files/service/maldet.sysconfig" \
+    -e "s|/usr/local/maldetect/monitor_paths|/etc/maldet/monitor_paths|"
 
-sed -i "files/internals/tlog" \
-    -e "s|/usr/local/maldetect/tmp|/var/lib/maldet/tmp|"
-
-install -m 777 /dev/null /etc/maldet/hookscan.conf
 install -D -m 755 "files/maldet" "/usr/bin/maldet"
 install -D -m 755 "files/hookscan.sh" "/usr/bin/hookscan"
+ln -sf "/usr/bin/hookscan" "/usr/bin/modsec"
+
 install -d "/usr/share/maldet"
-cp -ar "files/"{clean,internals,VERSION*} "/usr/share/maldet"
-install -d "/var/lib/maldet/"{internals,quarantine,sess,sigs,clean,tmp,pub}
-install -d "/var/log/maldet"
+cp -ar "files/"* "/usr/share/maldet"
+ 
+install -d -m 750 "/var/lib/maldet/"
+install -d -m 755 "/var/lib/maldet/"{internals,quarantine,sess,sigs,clean,tmp,pub}
+install -d -m 750 "/var/log/maldet"
+
+install -D -m 644 "files/logrotate.maldet" "$pkgdir/etc/logrotate.d/maldet"
+
 install -d "/etc/maldet"
 install -m 644 "files/conf.maldet" "/etc/maldet/maldet.conf"
-# install -m 644 "files/conf.maldet.hookscan" "/etc/maldet/hookscan.conf"
+install -m 644 "files/conf.maldet.hookscan" "/etc/maldet/hookscan.conf"
 install -m 644 "files/internals/internals.conf" "/etc/maldet/internals.conf"
 install -m 644 "files/monitor_paths" "/etc/maldet/monitor_paths"
+install -m 644 /dev/null "/etc/maldet/monitor_paths.extra"
+install -m 644 "files/service/maldet.sysconfig" "/etc/maldet/maldet.sysconfig"
 cp -ra "files/"ignore_* "/etc/maldet/"
-install -d "/usr/share/man/man1/"
+
 gzip -f9 "files/maldet.1"
 install -D -m 644 "files/maldet.1.gz" "/usr/share/man/man1/maldet.1.gz"
+
+install -d "/usr/share/doc/maldet/"
+install -D -m 644 "CHANGELOG" "/usr/share/doc/maldet/CHANGELOG"
+install -D -m 644 "COPYING.GPL" "/usr/share/license/maldet/COPYING"
+install -D -m 644 "README" "/usr/share/doc/maldet/README"
 '''
 
 @tasks.append
@@ -3371,7 +3391,10 @@ def ensure_maldet_installed_and_up_to_date():
     return
   if maldet := which('maldet'):
     _, maldet_bin = read_config(maldet)
-    current_version = re.search('ver=(.+)', maldet_bin).group(1)
+    current_version = re.search(
+      '(?:ver|lmd_version)="?([^"]+)',
+      maldet_bin,
+    ).group(1)
     if current_version == LATEST_MALDET_VERSION:
       return
   subprocess.run(get_shell(),
@@ -4436,6 +4459,11 @@ flatpak_exceptions = {
   'org.kde.gwenview': {
     'filesystems': {'xdg-config/kdeglobals:ro',},
   },
+  'org.kde.peruse': {
+    'filesystems': {
+      'xdg-config/kdeglobals:ro',
+    },
+  },
   'org.gnome.Evince': {
     'filesystems': common_gtk_configs,
   },
@@ -4505,6 +4533,11 @@ flatpak_exceptions = {
     'shared': {'network'},
     'devices': {'all'},
   },
+  'org.kde.okteta': {
+    'filesystems': {
+      'xdg-config/kdeglobals:ro',
+    },
+  },
   'org.gnome.GHex': {
     'filesystems': common_gtk_configs,
   },
@@ -4525,6 +4558,11 @@ flatpak_exceptions = {
       'org.kde.Solid.PowerManagement': 'talk',
       'org.kde.kconfig.notify': 'talk',
       'org.kde.kclockd': 'own',
+    },
+  },
+  'org.kde.francis': {
+    'filesystems': {
+      'xdg-config/kdeglobals:ro',
     },
   },
   'org.sqlitebrowser.sqlitebrowser': {},
