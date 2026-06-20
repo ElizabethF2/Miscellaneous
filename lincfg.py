@@ -258,6 +258,7 @@ export PYTHONPYCACHEPREFIX=~/.cache/pycache
 export ASPELL_CONF="home-dir $HOME/GDrive/Projects/Linux/config"
 
 bind -s 'set completion-ignore-case on'
+PROMPT_COMMAND='history -a'
 
 (prbsync notify &)
 '''
@@ -1230,7 +1231,7 @@ positionrule=4
 
 'firefox_pip': r'''
 Description=Firefox PIP
-wmclass=^(\\s*org\\.mozilla\\.)?firefox$
+wmclass=^(firefox)?\\s*(org\\.mozilla\\.)?firefox$
 wmclassmatch=3
 title=Picture-in-Picture
 titlematch=1
@@ -1241,7 +1242,7 @@ types=1
 
 'firefox_focus_stealing': r'''
 Description=Focus Stealing Settings for Firefox
-wmclass=^(\\s*org\\.mozilla\\.)?firefox$
+wmclass=^(firefox)?\\s*(org\\.mozilla\\.)?firefox$
 wmclasscomplete=true
 wmclassmatch=3
 fsplevelrule=2
@@ -4716,6 +4717,9 @@ flatpak_exceptions = {
   },
   'org.kde.kdenlive': {
     'devices': {'all'},
+  },
+  'it.mijorus.gearlever': {
+    'filesystems': common_gtk_configs,
   },
 }
 
