@@ -83,7 +83,7 @@ pacman_cmd_prefix = 'pacman -Syu --needed --noconfirm'.split()
 
 postmarketos_packages = '''
   python3 python3-doc micro micro-doc tmux tmux-doc bsd-games bsd-games-doc busybox-doc flatpak flatpak-doc
-  rclone rclone-doc man-db man-pages networkmanager-doc alpine-doc aspell aspell-en aspell-doc bash-doc
+  rclone rclone-doc man-db man-pages networkmanager-doc alpine-doc hunspell hunspell-en hunspell-doc bash-doc
   sudo sudo-doc doas doas-doc !doas-sudo-shim curl curl-doc baobab baobab-doc cryptsetup-doc findutils findutils-doc
   flashrom flashrom-doc waydroid iptables-doc iproute2-minimal ufw ufw-doc iproute2-ss sshfs sshfs-doc py3-cryptography
   bash scrcpy redsocks htop nethogs clamav coreutils bind-tools imagemagick fcitx5-qt fcitx5-configtool
@@ -256,8 +256,13 @@ export PATH=$PATH:$HOME/.local/bin
 export LESS=-i
 export PYTHONPYCACHEPREFIX=~/.cache/pycache
 export ASPELL_CONF="home-dir $HOME/GDrive/Projects/Linux/config"
+export DICPATH="$HOME/GDrive/Projects/Linux/config"
 
 bind -s 'set completion-ignore-case on'
+# export HISTFILESIZE=
+# export HISTSIZE=
+# export HISTTIMEFORMAT="[%F %T] "
+# export HISTFILE=~/.local/share/bash_history
 PROMPT_COMMAND='history -a'
 
 (prbsync notify &)
@@ -939,11 +944,12 @@ def ensure_sshd_is_configured():
 
 common_desired_plasma_vars = '''
 export ASPELL_CONF="home-dir $HOME/GDrive/Projects/Linux/config"
+export DICPATH="$HOME/GDrive/Projects/Linux/config"
 export PATH=$PATH:$HOME/.local/bin
 '''.lstrip()
 
 arch_linux_desired_plasma_vars = '''
-export KWIN_DRM_NO_AMS=1
+# export KWIN_DRM_NO_AMS=1
 '''.lstrip()
 
 def get_desired_plasma_startup_script():
@@ -1110,6 +1116,10 @@ rc_values_to_ensure = {
     ('[AC][Display]', 'TurnOffDisplayIdleTimeoutSec', '300'),
     ('[AC][SuspendAndShutdown]', 'AutoSuspendAction', '0'),
     ('[AC][SuspendAndShutdown]', 'LidAction', '64'),
+  ),
+
+  f'~{desired_username}/.config/KDE/Sonnet.conf': (
+    ('[General]', 'checkerEnabledByDefault', 'True'),
   ),
 }
 
@@ -4395,11 +4405,12 @@ flatpak_exceptions = {
     'sockets': {'x11', 'pulseaudio'},
     'devices': {'dri', 'input', 'all'},
     'persistent': {'.'},
-    'features': {'devel', 'per-app-dev-shm', 'multiarch'}, # 'bluetooth'
+    'features': {'devel', 'per-app-dev-shm', 'multiarch', 'bluetooth'},
     'filesystems': {
       # 'xdg-run/app/com.discordapp.Discord:create',
       # 'xdg-pictures:ro',
       # 'xdg-music:ro',
+      '/run/udev:ro',
       steam_pool_path,
       os.path.join(sftp_pool_mount_point, 'Games', 'Steam'),
       f'~{desired_username}/GDrive/Games/PC/Saves/Symlinked/Steam',
