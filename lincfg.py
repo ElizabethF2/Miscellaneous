@@ -263,7 +263,8 @@ bind -s 'set completion-ignore-case on'
 # export HISTSIZE=
 # export HISTTIMEFORMAT="[%F %T] "
 # export HISTFILE=~/.local/share/bash_history
-PROMPT_COMMAND='history -a'
+PROMPT_COMMAND=
+trap 'history -a' DEBUG
 
 (prbsync notify &)
 '''
@@ -2835,8 +2836,8 @@ def configure_ufw():
     subprocess.check_call((ufw, 'allow', 'proto', 'tcp', 'to', '0.0.0.0/0', 'port', str(sessen_port)))
 
 desired_python_packages = {
-  'https://pypi.io/packages/source/u/uploadserver/uploadserver-6.0.1.tar.gz':
-    'b05bb26369e6a42878f65c6be17e8b2903bd88f23fb4e6d65c2bd994bcf06e94',
+  'https://pypi.io/packages/source/u/uploadserver/uploadserver-6.0.2.tar.gz':
+    '08bc6a86f576f17001955efa158bed0667e6e113dab4225c5bbe4b5ced7f6421',
 
   'https://pypi.io/packages/source/b/bt-dualboot/bt-dualboot-1.0.1.tar.gz':
     'a63cc6bcb928b50965cf2ae7c6a0c88c696904ebd43e45a9bf47a8a0252b82ff',
@@ -4411,6 +4412,7 @@ flatpak_exceptions = {
       # 'xdg-pictures:ro',
       # 'xdg-music:ro',
       '/run/udev:ro',
+      'xdg-run/pipewire-0',
       steam_pool_path,
       os.path.join(sftp_pool_mount_point, 'Games', 'Steam'),
       f'~{desired_username}/GDrive/Games/PC/Saves/Symlinked/Steam',
