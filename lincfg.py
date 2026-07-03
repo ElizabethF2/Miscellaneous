@@ -2836,8 +2836,8 @@ def configure_ufw():
     subprocess.check_call((ufw, 'allow', 'proto', 'tcp', 'to', '0.0.0.0/0', 'port', str(sessen_port)))
 
 desired_python_packages = {
-  'https://pypi.io/packages/source/u/uploadserver/uploadserver-6.0.2.tar.gz':
-    '08bc6a86f576f17001955efa158bed0667e6e113dab4225c5bbe4b5ced7f6421',
+  'https://pypi.io/packages/source/u/uploadserver/uploadserver-6.0.3.tar.gz':
+    '85624ad7e4b9c83d670b3723f7902ffdd356f7eeea18f16de2c42f69b868ccaa',
 
   'https://pypi.io/packages/source/b/bt-dualboot/bt-dualboot-1.0.1.tar.gz':
     'a63cc6bcb928b50965cf2ae7c6a0c88c696904ebd43e45a9bf47a8a0252b82ff',
