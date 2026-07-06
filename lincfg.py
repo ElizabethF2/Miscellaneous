@@ -3940,6 +3940,7 @@ personal_desktop_locally_cached_projects = {
     'cwd': f'~{desired_username}/GDrive/Projects/Gamepadify/src',
     'source_patterns': ['*'],
     'destination': os.path.join(SYSTEM_SITE_PACKAGES, 'gamepadify'),
+    'mode': ANYONE_CAN_RX,
   },
   'perfm': {
     'sources': [f'~{desired_username}/GDrive/Projects/PerfM/perfm.py'],
