@@ -799,6 +799,8 @@ exec sshfs \
 'kr': r'''
 #!/bin/sh
 kwin_wayland --replace || exit $?
+sleep 5
+kwin_wayland --replace || exit $?
 systemctl restart --user plasma-plasmashell || exit $?
 exec systemctl restart --user plasma-powerdevil
 ''',
@@ -4297,7 +4299,7 @@ common_desired_flatpaks = {
 }
 
 personal_desired_flatpaks = {
-  'org.audacityteam.Audacity',  'com.rustdesk.RustDesk', 'io.github.streetpea.Chiaki4deck',
+  'org.audacityteam.Audacity',  'com.rustdesk.RustDesk',
 }
 
 arch_linux_desired_flatpaks = {
