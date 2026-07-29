@@ -952,7 +952,7 @@ export PATH=$PATH:$HOME/.local/bin
 '''.lstrip()
 
 arch_linux_desired_plasma_vars = '''
-# export KWIN_DRM_NO_AMS=1
+export KWIN_DRM_NO_AMS=1
 '''.lstrip()
 
 def get_desired_plasma_startup_script():
