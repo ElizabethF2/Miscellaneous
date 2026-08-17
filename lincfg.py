@@ -1408,8 +1408,11 @@ user_files_with_exact_contents[
 ColorScheme=GreenOnBlack
 
 [General]
-Name=Profile 1
+Name=Default
 Parent=FALLBACK/
+
+[Scrolling]
+HistorySize=9999
 '''.lstrip()
 
 user_files_with_exact_contents[
