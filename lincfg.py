@@ -4232,7 +4232,8 @@ pool_paths_shared_with_flatpaks = (
 
 flatpak_home = f'~{desired_username}/.var/app'
 
-bottles_bottles_path = f'{flatpak_home}/com.usebottles.bottles/data/bottles/bottles'
+bottles_data_path = f'{flatpak_home}/com.usebottles.bottles/data/bottles'
+bottles_bottles_path = f'{bottles_data_path}/bottles'
 bottles_to_map_pool = ('Quaternary',)
 
 @tasks.append
@@ -4347,6 +4348,8 @@ common_gtk_configs = {
   'xdg-config/gtk-4.0:ro',
 }
 
+steam_flatpak_root = f'{flatpak_home}/com.valvesoftware.Steam/.local/share/Steam'
+
 flatpak_exceptions = {
   'com.anydesk.Anydesk': {
     'shared': {'network'},
@@ -4434,6 +4437,13 @@ flatpak_exceptions = {
     },
     'system_bus_policy': {
       'org.freedesktop.UPower': 'talk',
+    },
+  },
+  'com.vysp3r.ProtonPlus': {
+    'shared': {'network'},
+    'filesystems': {
+      bottles_data_path,
+      steam_flatpak_root,
     },
   },
   'io.github.webcamoid.Webcamoid': {
@@ -4804,6 +4814,7 @@ def update_flatpaks_and_fix_permissions():
       idx = line.index('=')
       k,v = line[:idx], set(filter(None, line[idx+1:].split(';')))
       if current_section == 'Context' and k in noperm2arg:
+        v.discard('if:all:!has-input-device') # NB: special case
         to_remove = (v
                       - set(map(fixpath,
                                 flatpak_exceptions
@@ -5387,10 +5398,7 @@ def ensure_launcher_icon_is_up_to_date():
                mode = 'wb',
                user = desired_username)
 
-steam_roots = {
-  f'{flatpak_home}/com.valvesoftware.Steam/.local/share/Steam',
-  os.path.join(pool_mount_point, 'SteamLibrary/SteamLibrary/'),
-}
+steam_roots = {steam_flatpak_root, steam_pool_path}
 
 steam_compat_paths = {
   '2096610': [
