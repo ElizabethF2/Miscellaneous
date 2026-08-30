@@ -4441,7 +4441,7 @@ flatpak_exceptions = {
   },
   'com.vysp3r.ProtonPlus': {
     'shared': {'network'},
-    'filesystems': {
+    'filesystems': common_gtk_configs | {
       bottles_data_path,
       steam_flatpak_root,
     },
