@@ -3795,6 +3795,11 @@ common_personal_locally_cached_projects = {
     'exclude_patterns': ['**.md', '__pycache__'],
     'recursive_mode': ANYONE_CAN_RX,
   },
+  'libreflectivenas': {
+    'sources': [f'~{desired_username}/OneDrive/Projects/ReflectiveNAS/libreflectivenas.py'],
+    'destination': f'{SYSTEM_SITE_PACKAGES}/libreflectivenas.py',
+    'mode': ANYONE_CAN_RX,
+  },
   'upload_server': {
     'sources': [f'~{desired_username}/GDrive/Projects/Linux/upload_server.sh'],
     'destination': f'~{desired_username}/.local/bin/upload_server',
