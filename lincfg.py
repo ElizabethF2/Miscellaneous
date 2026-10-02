@@ -4447,7 +4447,7 @@ flatpak_exceptions = {
   'com.vysp3r.ProtonPlus': {
     'shared': {'network'},
     'filesystems': common_gtk_configs | {
-      bottles_data_path,
+      # bottles_data_path,
       steam_flatpak_root,
     },
   },
@@ -5887,7 +5887,7 @@ known_issues = {
 }
 
 known_issues_with_deadlines = {
-  'CVE-2025-46394': '2026-09-29',
+  'CVE-2025-46394': '2026-11-29',
 }
 
 @tasks.append
