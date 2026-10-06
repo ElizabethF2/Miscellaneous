@@ -4460,13 +4460,37 @@ flatpak_exceptions = {
       'org.kde.kconfig.notify': 'talk',
     }
   },
+  'org.gnome.Snapshot': {
+    'sockets': {'pulseaudio'},
+    'devices': {'all'},
+    'filesystems': {
+      'xdg-pictures/Camera',
+      'xdg-videos/Camera',
+    },
+    'session_bus_policy': {
+      'com.canonical.AppMenu.Registrar': 'talk',
+    }
+  },
+  'org.kde.kamoso': {
+    'devices': {'all'},
+    'filesystems': {
+      'xdg-pictures',
+      'xdg-videos',
+      'xdg-config/kdeglobals:ro',
+      'xdg-run/pipewire-0',
+    },
+    'session_bus_policy': {
+      'com.canonical.AppMenu.Registrar': 'talk',
+      'org.kde.kconfig.notify': 'talk',
+    },
+  },
   'org.audacityteam.Audacity': {
     'sockets': {'x11', 'pulseaudio'},
     'filesystems': {'xdg-run/pipewire-0'},
     'session_bus_policy': {
       'com.canonical.AppMenu.Registrar': 'talk',
       'org.kde.kconfig.notify': 'talk',
-    }
+    },
   },
   'org.gimp.GIMP': {
     'sockets': {'x11'},
@@ -5309,7 +5333,9 @@ A_WEEK = 7*24*60*60
 @tasks.append
 def run_periodic_tasks():
   if systemd_tmpfiles := which('systemd-tmpfiles'):
-    subprocess.check_call((systemd_tmpfiles, '--clean'))
+    proc = subprocess.run((systemd_tmpfiles, '--clean'))
+    if proc.returncode != os.EX_CANTCREAT:
+      proc.check_returncode()
   if mandb := which('mandb'):
     makedirs('/var/cache/man', user = 'root')
     subprocess.check_call((mandb, '--quiet'))
