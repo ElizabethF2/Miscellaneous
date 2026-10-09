@@ -86,7 +86,7 @@ postmarketos_packages = '''
   rclone rclone-doc man-db man-pages networkmanager-doc alpine-doc hunspell hunspell-en hunspell-doc bash-doc
   sudo sudo-doc doas doas-doc !doas-sudo-shim curl curl-doc baobab baobab-doc cryptsetup-doc findutils findutils-doc
   flashrom flashrom-doc waydroid iptables-doc iproute2-minimal ufw ufw-doc iproute2-ss sshfs sshfs-doc py3-cryptography
-  bash scrcpy redsocks htop nethogs clamav coreutils bind-tools imagemagick fcitx5-qt fcitx5-configtool
+  bash scrcpy redsocks htop nethogs clamav coreutils bind-tools imagemagick fcitx5-qt fcitx5-configtool baloo
 '''.split()
 
 personal_postmarketos_packages = '''
@@ -1105,14 +1105,20 @@ rc_values_to_ensure = {
   ),
 
   f'~{desired_username}/.config/krunnerrc': (
+    ('[Plugins]', 'baloosearchEnabled', 'true'),
     (
       '[Plugins][Favorites]',
       'plugins',
       ','.join((
-        'locations', 'krunner_recentdocuments', 'krunner_sessions',
-        'krunner_powerdevil', 'krunner_services', 'krunner_systemsettings',
+        'baloosearch', 'locations', 'krunner_recentdocuments',
+        'krunner_sessions', 'krunner_powerdevil', 'krunner_services',
+        'krunner_systemsettings',
       )),
     ),
+  ),
+
+  f'~{desired_username}/.config/baloofilerc': (
+    ('[General]', 'folders[$e]', '$HOME/,$HOME/GDrive/,$HOME/OneDrive'),
   ),
 
   f'~{desired_username}/.config/powerdevilrc': (
@@ -5490,7 +5496,7 @@ def update_app_cache():
                          kbuildsycoca, '--noincremental'),
                         env = env)
 
-only_enable_baloo_temporarily = True
+only_enable_baloo_temporarily = False
 
 @tasks.append
 def update_file_index():
@@ -6299,7 +6305,7 @@ def ensure_rc_values(path, values, user = desired_username):
   return ensure_rc_values_with_cache(p, rc, values, user = user)
 
 def rc_regex_escape(txt):
-  for c in '$[]().*+\\':
+  for c in '\\$[]().*+':
     txt = txt.replace(c, '\\'+c)
   return txt
 
