@@ -1110,8 +1110,8 @@ rc_values_to_ensure = {
       '[Plugins][Favorites]',
       'plugins',
       ','.join((
-        'baloosearch', 'locations', 'krunner_recentdocuments',
-        'krunner_sessions', 'krunner_powerdevil', 'krunner_services',
+        'krunner_recentdocuments', 'krunner_services', 'baloosearch',
+        'locations', 'krunner_sessions', 'krunner_powerdevil',
         'krunner_systemsettings',
       )),
     ),
@@ -4917,39 +4917,56 @@ def set_chromium_wayland_flags():
     except (FileNotFoundError, FileExistsError):
       pass
 
+desried_application_dir = f'~{desired_username}/.local/share/applications'
+
+pwa_template = f'''
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=VAR_NAME
+GenericName=VAR_GENERIC_NAME
+Comment=VAR_COMMENT
+Icon={flatpak_home}/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/VAR_ID/Icons/512.png
+Exec=/usr/bin/flatpak run io.github.ungoogled_software.ungoogled_chromium --app-id=VAR_ID
+Categories=VAR_CATEGORIES
+Keywords=VAR_KEYWORDS
+'''.lstrip()
+
 pwa_shortcuts = {
 
-f'~{desired_username}/.local/share/applications/GeForceNow.desktop': f'''
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=GeForce Now
-GenericName=Cloud Gaming
-Comment=Cloud Gaming
-Icon={flatpak_home}/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/egmafekfmcnknbdlbfbhafbllplmjlhn/Icons/512.png
-Exec=/usr/bin/flatpak run io.github.ungoogled_software.ungoogled_chromium --app-id=egmafekfmcnknbdlbfbhafbllplmjlhn
-Categories=Game;Network;
-Keywords=cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;
-'''.lstrip(),
+'GeForceNow': {
+  'name': 'GeForce Now',
+  'generic_name': 'Cloud Gaming',
+  'comment': 'Cloud Gaming',
+  'id': 'egmafekfmcnknbdlbfbhafbllplmjlhn',
+  'categories': 'Game;Network;',
+  'Keywords': 'cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;',
+},
 
-f'~{desired_username}/.local/share/applications/XboxCloudGaming.desktop': f'''
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=Xbox Cloud Gaming
-GenericName=Cloud Gaming
-Comment=Cloud Gaming
-Icon={flatpak_home}/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/chcecgcbjkilfgeccdhoeaillkophnhg/Icons/512.png
-Exec=/usr/bin/flatpak run io.github.ungoogled_software.ungoogled_chromium --app-id=chcecgcbjkilfgeccdhoeaillkophnhg
-Categories=Game;Network;
-Keywords=cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;
-'''.lstrip(),
+'XboxCloudGaming': {
+  'name': 'Xbox Cloud Gaming',
+  'generic_name': 'Cloud Gaming',
+  'comment': 'Cloud Gaming',
+  'id': 'chcecgcbjkilfgeccdhoeaillkophnhg',
+  'categories': 'Game;Network;',
+  'Keywords': 'cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;',
+},
+
+# 'WhatsApp': {
+#   'name': 'WhatsApp',
+#   'id': 'hnpfjngllnobngcgfapefoaidbinmjnm',
+#   'categories': 'Network',
+# },
 
 }
 
 @tasks.append
 def create_pwa_shortcuts_for_installed_pwas():
-  for shortcut_path, desired_shortcut in pwa_shortcuts.items():
+  for name, meta in pwa_shortcuts.items():
+    shortcut_path = os.path.join(desried_application_dir, name + '.desktop')
+    desired_shortcut = pwa_template
+    for k, v in meta.items():
+      desired_shortcut = desired_shortcut.replace('VAR_'+k.upper(), v)
     original_icon_path = re.search(r'Icon=(.+)', desired_shortcut).group(1)
     icon_path = fixpath(original_icon_path)
     desired_shortcut = desired_shortcut.replace(original_icon_path, icon_path)
