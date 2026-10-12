@@ -796,6 +796,11 @@ exec sshfs \
   "$@"
 ''',
 
+'kk': r'''
+#!/bin/sh
+exec fusermount -u "/run/user/$(id -u)"/kio-fuse-*
+''',
+
 'kr': r'''
 #!/bin/sh
 kwin_wayland --replace || exit $?
@@ -4923,13 +4928,9 @@ pwa_template = f'''
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=VAR_NAME
-GenericName=VAR_GENERIC_NAME
-Comment=VAR_COMMENT
+VARS
 Icon={flatpak_home}/io.github.ungoogled_software.ungoogled_chromium/config/chromium/Default/Web Applications/Manifest Resources/VAR_ID/Icons/512.png
 Exec=/usr/bin/flatpak run io.github.ungoogled_software.ungoogled_chromium --app-id=VAR_ID
-Categories=VAR_CATEGORIES
-Keywords=VAR_KEYWORDS
 '''.lstrip()
 
 pwa_shortcuts = {
@@ -4952,11 +4953,11 @@ pwa_shortcuts = {
   'Keywords': 'cloud;game;gaming;nvidia;stream;steaming;steam;epic;ubisoft;',
 },
 
-# 'WhatsApp': {
-#   'name': 'WhatsApp',
-#   'id': 'hnpfjngllnobngcgfapefoaidbinmjnm',
-#   'categories': 'Network',
-# },
+'WhatsApp': {
+  'name': 'WhatsApp',
+  'id': 'hnpfjngllnobngcgfapefoaidbinmjnm',
+  'categories': 'Network',
+},
 
 }
 
@@ -4965,8 +4966,14 @@ def create_pwa_shortcuts_for_installed_pwas():
   for name, meta in pwa_shortcuts.items():
     shortcut_path = os.path.join(desried_application_dir, name + '.desktop')
     desired_shortcut = pwa_template
+    vs = {}
     for k, v in meta.items():
-      desired_shortcut = desired_shortcut.replace('VAR_'+k.upper(), v)
+      if (ko := 'VAR_'+k.upper()) in pwa_template:
+        desired_shortcut = desired_shortcut.replace(ko, v)
+      else:
+        vs[k.replace('_', ' ').title().replace(' ', '')] = v
+    vs = '\n'.join((f'{k}={v}' for k,v in vs.items()))
+    desired_shortcut = desired_shortcut.replace('VARS', vs)
     original_icon_path = re.search(r'Icon=(.+)', desired_shortcut).group(1)
     icon_path = fixpath(original_icon_path)
     desired_shortcut = desired_shortcut.replace(original_icon_path, icon_path)
